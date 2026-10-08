@@ -19,6 +19,13 @@ record that limit. The workflow correction selects only release assets and platf
 | OCI Helm chart | ghcr.io/rayselfs/charts/kube-token-requestor |
 | Chart package / checksums / SBOM / manifest | GitHub Release assets |
 
+New releases include `licenses.csv` and `licenses.tgz`: the inventory and complete dependency
+license/notice files collected for both Linux architectures, plus the project Apache-2.0 text,
+project notice and Go runtime license. The identical tree is shipped at `/licenses` in each
+controller image. The packaged chart includes the project LICENSE and NOTICE. Native release
+smoke compares image texts with the signed/checksummed bundle and verifies chart texts; a
+license inventory alone is insufficient. This packaging change does not alter existing RC2 bytes.
+
 The chart basename and Chart.yaml name are `kube-token-requestor`. Helm pushes the package to
 `oci://ghcr.io/rayselfs/charts`; clients install the chart reference with the basename appended.
 GHCR hosts both image and chart; no external chart registry, Pages or Docker Hub is required.

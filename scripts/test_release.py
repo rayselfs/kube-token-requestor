@@ -42,7 +42,7 @@ class ManifestChecks(unittest.TestCase):
   def assets(self, root):
     for name in ['image-linux-amd64.spdx.json', 'image-linux-arm64.spdx.json',
            'image.sigstore.json', 'chart.sigstore.json',
-           'kube-token-requestor-0.1.0-rc.1.tgz', 'licenses.csv']:
+           'kube-token-requestor-0.1.0-rc.1.tgz', 'licenses.csv', 'licenses.tgz']:
       (root / name).write_bytes(b'synthetic test artifact')
 
   def test_platform_pair_and_asset_hashes(self):
@@ -61,6 +61,11 @@ class ManifestChecks(unittest.TestCase):
       self.assertEqual(set(result['image']['platformDigests']), {'linux/amd64', 'linux/arm64'})
       self.assertEqual(result['acceptedMatrix'], [])
       self.assertEqual(result['assets']['licenses.csv']['sha256'], release.sha(root/'licenses.csv'))
+      self.assertEqual(result['assets']['licenses.tgz']['sha256'], release.sha(root/'licenses.tgz'))
+      (root/'licenses.tgz').unlink()
+      with self.assertRaises(ValueError):
+        release.manifest(*args, index, root)
+      (root/'licenses.tgz').write_bytes(b'synthetic test artifact')
       index['manifests'].pop()
       with self.assertRaises(ValueError):
         release.manifest(*args, index, root)
