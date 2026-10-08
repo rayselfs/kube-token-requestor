@@ -395,12 +395,7 @@ func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config
 		if err := e.save(ctx, consumer.ID, &entry); err != nil {
 			return err
 		}
-		if *d.Spec.Replicas == 1 {
-			if err := scale(ctx, e.Management, consumer, 1, 0); err != nil {
-				return err
-			}
-		}
-		if err := stopped(ctx, e.Management, consumer); err != nil {
+		if err := e.stopRenewal(ctx, consumer, &entry, *d.Spec.Replicas); err != nil {
 			return err
 		}
 	}

@@ -179,3 +179,27 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 	entry.Intent, entry.Condition = nil, "Healthy"
 	return e.save(ctx, consumer.ID, entry)
 }
+
+// A known competing scale operation cancels our restart authority. Indeterminate transport
+// failures keep durable intent for crash recovery; operators disable the consumer to suspend it.
+func (e *Engine) stopRenewal(ctx context.Context, consumer config.Consumer, entry *status.Consumer, replicas int32) error {
+	var err error
+	if replicas == 1 {
+		err = scale(ctx, e.Management, consumer, 1, 0)
+	}
+	if err == nil {
+		err = stopped(ctx, e.Management, consumer)
+	}
+	if err != provider.Conflict {
+		return err
+	}
+	d, readErr := deployment(ctx, e.Management, consumer)
+	if readErr != nil {
+		return readErr
+	}
+	entry.Acknowledgement = d.Annotations[Acknowledge]
+	if stopErr := e.stop(ctx, consumer, entry, "SafetyStopped"); stopErr != nil {
+		return stopErr
+	}
+	return provider.Conflict
+}
