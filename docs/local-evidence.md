@@ -14,7 +14,10 @@ published release artifacts; release-manifest evidence must bind the exact relea
 | Helm rolling upgrade | Latest development image reaches two Ready replicas; status/Lease UIDs unchanged; CA Pod retained | Uninstall/reinstall remains release smoke |
 | Leader Pod loss | Lease holder changed within 35.5 seconds; status/Lease identities and CA Pod retained | Pod loss only; node/network partition drills remain open |
 | Source security | Full race tests/vet/fuzz passed; govulncheck reports no vulnerabilities | Image CVE/SBOM/signature verification remains release workflow |
-| Alert expressions | All eleven expressions parse; SafetyStop/StopUnconfirmed fixtures fire | Real receiver delivery and recovery not accepted |
+| Alert expressions | All eleven expressions parse; SafetyStop/StopUnconfirmed fixtures fire | Production receiver/on-call acceptance remains open |
+| Local notification route | Rendered RequestorUnavailable rule scraped by real Prometheus 3.15.0 and Alertmanager 0.34.1; stopping/restoring the local shared controller delivered both firing and resolved notifications to a loopback receiver | Synthetic receiver only; CA Pod and nodes retained; other alert delivery profiles remain open |
+| Issuer isolation/recovery | Expired only child-a's operator rotation annotation; after in-flight work drained, child-a output stayed unchanged while child-b rotated; restoring the source recovered child-a issuance | Development image, metadata rejection rather than child network partition; annotation restored |
+| Consumer ownership conflict | Changed only the stopped second CA output's ownership annotation; that output stayed unchanged while its sibling rotated; annotation restored | Stopped consumer only; transport/RBAC denial and active-consumer failure remain separate drills |
 
 Actual CA baseline index digest:
 `sha256:aac369dc283927a623deb1af54696efcc722ae79255aa07788422e495bab887d`.

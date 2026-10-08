@@ -23,6 +23,11 @@ from registry outputs and pass it explicitly; synthetic stopped-image hashes are
 - `observe`: read-only, verify the first actual CA Pod has no replacement/restarts, repeated
   restricted API access, at least two token changes, rejection of the original token after
   its actual expiry (with a bounded two-minute rejection grace) and absence of authentication/authorization failures in recent CA logs.
+- `faults`: require the accelerated two-child baseline and a stopped second consumer; temporarily
+  expire child-a's issuer rotation annotation, prove child-b continues rotating, restore it and
+  verify recovery. Then temporarily replace only the stopped consumer's ownership annotation
+  and prove the sibling rotates without overwriting the foreign-owned output. Annotation changes
+  use UID/resourceVersion/value CAS and cleanup reports failure. No credential data is changed.
 
 Arguments are `--kubeconfigs` (protected directory containing `management`, `child-a`, `child-b`),
 `--values` (non-secret generated values), `--ca-digest` and `--duration` for observation. Observation
