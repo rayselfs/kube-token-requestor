@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "managementUID": "00000000-0000-0000-0000-000000000001",
+  "clusters": [
+    {
+      "id": "workload-a",
+      "enabled": false,
+      "endpoint": "https://workload-a.example.invalid:6443",
+      "kubeSystemUID": "00000000-0000-0000-0000-000000000064",
+      "caSHA256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "identityNamespace": "ca-identities",
+      "audiences": [
+        "https://kubernetes.default.svc"
+      ],
+      "expectedIssuer": {
+        "username": "system:serviceaccount:ca-identities:issuer",
+        "groups": [
+          "system:serviceaccounts",
+          "system:serviceaccounts:ca-identities",
+          "system:authenticated"
+        ]
+      },
+      "lifetime": {
+        "requestedSeconds": 86400,
+        "acceptedMinSeconds": 79200,
+        "acceptedMaxSeconds": 90000,
+        "renewBeforeSeconds": 43200,
+        "stopBeforeSeconds": 1800,
+        "clockSkewSeconds": 60
+      },
+      "consumers": [
+        {
+          "id": "workload-a-ca-1",
+          "enabled": false,
+          "serviceAccount": {
+            "name": "ca-1",
+            "uid": "00000000-0000-0000-0000-00000000006f"
+          },
+          "secret": {
+            "namespace": "workload-a",
+            "name": "ca-1-child-token",
+            "uid": "00000000-0000-0000-0000-000000000079"
+          },
+          "caDeployment": {
+            "namespace": "workload-a",
+            "name": "ca-1",
+            "uid": "00000000-0000-0000-0000-000000000083",
+            "imageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "reloadPolicy": "StopStart",
+          "permissionProfile": "ca-read-events"
+        },
+        {
+          "id": "workload-a-ca-2",
+          "enabled": false,
+          "serviceAccount": {
+            "name": "ca-2",
+            "uid": "00000000-0000-0000-0000-000000000070"
+          },
+          "secret": {
+            "namespace": "workload-a",
+            "name": "ca-2-child-token",
+            "uid": "00000000-0000-0000-0000-00000000007a"
+          },
+          "caDeployment": {
+            "namespace": "workload-a",
+            "name": "ca-2",
+            "uid": "00000000-0000-0000-0000-000000000084",
+            "imageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "reloadPolicy": "StopStart",
+          "permissionProfile": "ca-read-events"
+        }
+      ],
+      "provider": {
+        "type": "SecretIssuer",
+        "serviceAccount": {
+          "name": "issuer",
+          "uid": "00000000-0000-0000-0000-000000000065"
+        },
+        "secret": {
+          "namespace": "workload-a",
+          "name": "ca-issuer",
+          "uid": "00000000-0000-0000-0000-000000000066"
+        },
+        "longLived": true,
+        "rotationPeriodSeconds": 7776000
+      }
+    },
+    {
+      "id": "workload-b",
+      "enabled": false,
+      "endpoint": "https://workload-b.example.invalid:6443",
+      "kubeSystemUID": "00000000-0000-0000-0000-0000000000c8",
+      "caSHA256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "identityNamespace": "ca-identities",
+      "audiences": [
+        "https://kubernetes.default.svc"
+      ],
+      "expectedIssuer": {
+        "username": "workload:requestor-b",
+        "groups": [
+          "workload-issuers",
+          "system:authenticated"
+        ]
+      },
+      "lifetime": {
+        "requestedSeconds": 86400,
+        "acceptedMinSeconds": 79200,
+        "acceptedMaxSeconds": 90000,
+        "renewBeforeSeconds": 43200,
+        "stopBeforeSeconds": 1800,
+        "clockSkewSeconds": 60
+      },
+      "consumers": [
+        {
+          "id": "workload-b-ca-1",
+          "enabled": false,
+          "serviceAccount": {
+            "name": "ca-1",
+            "uid": "00000000-0000-0000-0000-0000000000d3"
+          },
+          "secret": {
+            "namespace": "workload-b",
+            "name": "ca-1-child-token",
+            "uid": "00000000-0000-0000-0000-0000000000dd"
+          },
+          "caDeployment": {
+            "namespace": "workload-b",
+            "name": "ca-1",
+            "uid": "00000000-0000-0000-0000-0000000000e7",
+            "imageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "reloadPolicy": "StopStart",
+          "permissionProfile": "ca-read-events"
+        }
+      ],
+      "provider": {
+        "type": "OAuthTokenExchange",
+        "tokenEndpoint": "https://identity.example.invalid/oauth/token",
+        "trustSecret": {
+          "namespace": "token-requestor-system",
+          "name": "exchange-ca",
+          "uid": "00000000-0000-0000-0000-0000000000ca"
+        },
+        "clientID": "requestor-fixture",
+        "clientSecret": {
+          "namespace": "token-requestor-system",
+          "name": "exchange-client",
+          "uid": "00000000-0000-0000-0000-0000000000cb"
+        },
+        "subjectTokenVolume": "exchange-subject",
+        "subjectTokenAudience": "https://identity.example.invalid",
+        "audience": "https://workload-b.example.invalid",
+        "scopes": [
+          "ca-token-issuer"
+        ],
+        "acceptedMinSeconds": 600,
+        "acceptedMaxSeconds": 3600
+      }
+    }
+  ]
+}
