@@ -97,7 +97,8 @@ def check_example(config):
 
 def main():
   documents = [ROOT / 'README.md', ROOT / 'AGENTS.md', ROOT / 'SECURITY.md',
-         *sorted((ROOT / 'docs').glob('*.md'))]
+         *sorted((ROOT / 'docs').glob('*.md')),
+         *sorted((ROOT / 'bootstrap').glob('*.md'))]
   for path in documents:
     text = path.read_text()
     check_text(text)
