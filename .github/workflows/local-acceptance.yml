@@ -1,0 +1,61 @@
+name: Released multi-cluster acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Published paired release to test (for example v0.1.0-rc.2)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-acceptance-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  local-api:
+    if: github.ref == 'refs/heads/main' && github.actor == github.repository_owner
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.26.9'
+          cache: false
+      - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
+        with:
+          version: v4.1.3
+      - uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+        with:
+          cosign-release: v3.1.3
+      - name: Test published image with actual local child APIs and CA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: scripts/local-acceptance.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: success()
+        with:
+          name: local-api-${{ matrix.arch }}
+          path: ${{ runner.temp }}/local-acceptance/evidence.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove only synthetic task clusters
+        if: always()
+        run: |
+          if command -v kind >/dev/null; then
+            for role in management child-a child-b; do kind delete cluster --name "requestor-$role"; done
+          fi
