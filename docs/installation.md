@@ -2,7 +2,7 @@
 
 This is a management-cluster service. It does not install child identities, discover workloads,
 change node pools or grant child RBAC. Installation and activation are separate operations.
-No published release or production acceptance is implied by the source chart.
+The first published candidate is `v0.1.0-rc.2`; no production acceptance is implied by it.
 
 Review the separate [child bootstrap example](../bootstrap/README.md) for exact issuer/consumer
 rights and secure credential preparation. It is not applied by Helm or the controller.
@@ -13,6 +13,25 @@ Use an accepted release-manifest matrix row. Verify the paired image/chart signa
 checksums, the source commit and platform digest. Two schedulable management nodes are required
 by hard Pod anti-affinity. Supply explicit API/broker/DNS egress and monitoring ingress rules;
 NetworkPolicy enforcement must be verified on the operator's CNI.
+
+For experimental acceptance, use the candidate's signed manifest and documented limits instead
+of claiming an accepted production row. RC2's index digest is
+`sha256:1c89a768bf18ecafffb6be237bd1fc49da090c00a81a5286881fc624508636b4`.
+Its OCI chart digest is
+`sha256:d610860a2ceaefa53deec7ff29140d5af9c662a3dffef5394d7b72fd59a5f017`.
+Download the release's signed manifest/bundle and chart package. With pinned cosign v3.1.3:
+
+```sh
+identity='https://github.com/rayselfs/kube-token-requestor/.github/workflows/release.yml@refs/heads/main'
+cosign verify-blob --bundle manifest.sigstore.json \
+  --certificate-identity "$identity" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com release-manifest.json
+```
+
+Check the package SHA256 against the signed manifest's `chart.packageSHA256`, not an unsigned
+checksum file alone. Review signatures on the manifest's image/chart digest references as well.
+Native public pulls and stopped-default installation are covered by the release smoke; child
+authentication and operating-policy acceptance remain separate.
 
 Prepare an operator-owned registry from `examples/registry.json`, with actual API endpoints,
 public CA hashes, cluster/SA/object UIDs and exact CA image digests. Keep credential payloads in

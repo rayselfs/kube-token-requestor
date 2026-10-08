@@ -3,8 +3,10 @@
 A shared Kubernetes credential controller designed to issue and distribute short-lived
 ServiceAccount tokens to multiple Cluster Autoscalers across multiple workload clusters.
 
-**Status: controller runtime and source Helm chart implemented; release/production acceptance pending.**
-No container image, OCI chart release or production compatibility has been published yet.
+**Status: experimental paired release available; production acceptance pending.**
+[v0.1.0-rc.2](https://github.com/rayselfs/kube-token-requestor/releases/tag/v0.1.0-rc.2) includes
+public multiarchitecture image/OCI chart, signatures, SBOMs and native Helm lifecycle evidence.
+It is available for reviewed acceptance testing; no stable production matrix is accepted yet.
 
 One Deployment serves all enrolled clusters and consumers. Two replicas provide leader-elected
 HA. Enrollment is explicit; the service does not discover clusters or adopt admin kubeconfigs.
@@ -29,13 +31,15 @@ Both supply an issuer credential. The controller then calls Kubernetes TokenRequ
 CA-specific management Secrets. Supporting token exchange does not imply compatibility with
 all OIDC products or support for interactive SRE login and API gateways.
 
-## Planned distribution
+## Distribution
 
 - Source and releases: `https://github.com/rayselfs/kube-token-requestor`
 - Controller image: `ghcr.io/rayselfs/kube-token-requestor`
 - OCI Helm chart: `oci://ghcr.io/rayselfs/charts/kube-token-requestor`
 
-These are reserved publication locations, not existing artifacts. Production activation requires
+Image and chart packages are public and tested with anonymous pulls on linux/amd64 and linux/arm64.
+Use the release manifest's exact digests and verify signatures before installation.
+Production activation requires
 accepted matrix entries and operating alerts, not merely a successful Helm installation.
 
 ## Scope
@@ -44,9 +48,10 @@ The project is environment-neutral. No company endpoints, cluster UIDs, credenti
 infrastructure inventory belong here. Installation-specific values and approvals live in the
 operator's configuration repository. No commercial access platform is required.
 
-The source chart defaults to zero controller replicas and an empty registry. It requires explicit
-identity pins, credentials prepared through an approved channel and a released image digest before
-activation. Runtime tests do not authorize adoption into an external cluster.
+The chart defaults to zero controller replicas and an empty registry. Published packages contain
+the paired image digest; source values intentionally have none. Activation requires explicit
+identity pins and credentials prepared through an approved channel. Runtime tests do not authorize
+adoption into an external cluster.
 
 ## Check the specification package
 

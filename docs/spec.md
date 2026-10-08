@@ -1,6 +1,7 @@
 # Shared Kubernetes TokenRequestor specification
 
-Version: draft 0.1. Status: config and issuer/issuance core implemented; shared runtime pending.
+Version: draft 0.1. Status: shared runtime and experimental paired chart/image implemented;
+complete failure, OAuth API-trust and production acceptance remain pending.
 MUST / MUST NOT define release requirements. Proposed defaults are subject to measured acceptance.
 
 ## 1. Goals, scope and topology
