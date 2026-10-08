@@ -152,10 +152,10 @@ func observeNatural(root, path, manifestPath, evidencePath string, duration time
 		}
 	}()
 	return observeProgress(root, path, duration, func(rotations int, rejected bool, podUID string) error {
-		if time.Since(lastObserved) > 90*time.Second {
+		if gap := time.Now().UTC().Sub(lastObserved); gap > 90*time.Second || gap < 0 {
 			return provider.Transport
 		}
-		lastObserved = time.Now()
+		lastObserved = time.Now().UTC()
 		call, done := context.WithTimeout(context.Background(), 30*time.Second)
 		defer done()
 		if err := check(call); err != nil {
