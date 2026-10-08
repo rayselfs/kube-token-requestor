@@ -17,7 +17,8 @@ from registry outputs and pass it explicitly; synthetic stopped-image hashes are
   output Secrets and three stopped CA fixtures; generate non-secret Helm values. It requires
   fresh local clusters and does not overwrite existing resources.
 - `assert`: validate three distinct issued tokens using actual child API identities/UIDs and
-  allowed/denied permissions. CA fixtures must remain stopped.
+  issuer/consumer effective rules and allowed/denied permissions. CA fixtures must remain stopped.
+- `rights`: the same read-only identity and permission checks with active CA fixtures allowed.
 - `configure-ca`: while controller/CA fixtures are stopped, configure actual digest-pinned CA
   containers, normal TokenFile volumes, read-only management CAPI discovery and frequent renewal.
 - `observe`: read-only, verify the first actual CA Pod has no replacement/restarts, repeated

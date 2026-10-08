@@ -96,6 +96,9 @@ func Issuer(ctx context.Context, client kubernetes.Interface, c config.Cluster) 
 	if err := Identity(ctx, client, c, c.ExpectedIssuer); err != nil {
 		return err
 	}
+	if err := reviewPermissions(ctx, client, c, nil); err != nil {
+		return err
+	}
 	if c.Provider.ServiceAccount != nil {
 		if err := NamedSA(ctx, client, c.IdentityNamespace, *c.Provider.ServiceAccount); err != nil {
 			return err
@@ -133,6 +136,9 @@ func denied(ctx context.Context, client kubernetes.Interface, namespace string) 
 func ValidateConsumer(ctx context.Context, client kubernetes.Interface, c config.Cluster, consumer config.Consumer) error {
 	principal := config.Principal{Username: "system:serviceaccount:" + c.IdentityNamespace + ":" + consumer.ServiceAccount.Name, Groups: []string{"system:serviceaccounts", "system:serviceaccounts:" + c.IdentityNamespace, "system:authenticated"}}
 	if err := Identity(ctx, client, c, principal); err != nil {
+		return err
+	}
+	if err := reviewPermissions(ctx, client, c, &consumer); err != nil {
 		return err
 	}
 	if err := NamedSA(ctx, client, c.IdentityNamespace, consumer.ServiceAccount); err != nil {

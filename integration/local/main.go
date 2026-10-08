@@ -55,7 +55,10 @@ func run() error {
 		return configureCA(*root, *out, *digest)
 	}
 	if *action == "assert" {
-		return assert(*root, *out)
+		return assert(*root, *out, true)
+	}
+	if *action == "rights" {
+		return assert(*root, *out, false)
 	}
 	if *action != "bootstrap" {
 		return provider.Trust
@@ -111,7 +114,7 @@ func run() error {
 		}
 		identityRules := []rbac.PolicyRule{{APIGroups: []string{""}, Resources: []string{"namespaces"}, ResourceNames: []string{"kube-system"}, Verbs: []string{"get"}},
 			{APIGroups: []string{"authentication.k8s.io"}, Resources: []string{"selfsubjectreviews"}, Verbs: []string{"create"}},
-			{APIGroups: []string{"authorization.k8s.io"}, Resources: []string{"selfsubjectaccessreviews"}, Verbs: []string{"create"}}}
+			{APIGroups: []string{"authorization.k8s.io"}, Resources: []string{"selfsubjectaccessreviews", "selfsubjectrulesreviews"}, Verbs: []string{"create"}}}
 		_, err = client.RbacV1().ClusterRoles().Create(ctx, &rbac.ClusterRole{ObjectMeta: meta.ObjectMeta{Name: "requestor-identity"}, Rules: identityRules}, meta.CreateOptions{})
 		if err != nil {
 			return err
@@ -244,7 +247,7 @@ func binding(ctx context.Context, client kubernetes.Interface, ns, name string, 
 	return err
 }
 
-func assert(root, path string) error {
+func assert(root, path string, requireStopped bool) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return provider.Trust
@@ -278,6 +281,17 @@ func assert(root, path string) error {
 		endpoint := cfg.Clusters["kind-requestor-"+cluster.ID].Server
 		target := cluster
 		target.Endpoint = endpoint
+		identity, err := (provider.SecretIssuer{Management: management, Now: time.Now}).Acquire(ctx, target)
+		if err != nil {
+			return err
+		}
+		issuer, err := issue.Client(endpoint, identity)
+		if err != nil {
+			return err
+		}
+		if err := issue.Issuer(ctx, issuer, target); err != nil {
+			return err
+		}
 		for _, consumer := range cluster.Consumers {
 			output, err := publish.Read(ctx, management, consumer)
 			if err != nil {
@@ -300,13 +314,13 @@ func assert(root, path string) error {
 				return err
 			}
 			deployment, err := management.AppsV1().Deployments(consumer.CADeployment.Namespace).Get(ctx, consumer.CADeployment.Name, meta.GetOptions{})
-			if err != nil || string(deployment.UID) != consumer.CADeployment.UID || deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 0 {
+			if err != nil || string(deployment.UID) != consumer.CADeployment.UID || deployment.Spec.Replicas == nil || (requireStopped && *deployment.Spec.Replicas != 0) {
 				return provider.Trust
 			}
 			count++
 		}
 	}
-	fmt.Printf("real local API acceptance passed: %d distinct CA tokens, identity/UID checks and denied rights; all CA fixtures remain stopped\n", count)
+	fmt.Printf("real local API acceptance passed: %d distinct CA tokens, issuer/consumer identity and effective rights checked; stoppedRequired=%t\n", count, requireStopped)
 	return nil
 }
 
