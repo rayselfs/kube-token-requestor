@@ -25,7 +25,7 @@ func (r *runtime) transition(ctx context.Context, next *config.Registry) error {
 			if old.Endpoint != replacement.Endpoint || old.KubeSystemUID != replacement.KubeSystemUID || old.CASHA256 != replacement.CASHA256 || old.IdentityNamespace != replacement.IdentityNamespace {
 				return provider.Trust
 			}
-			if !reflect.DeepEqual(old.Provider, replacement.Provider) || !reflect.DeepEqual(old.ExpectedIssuer, replacement.ExpectedIssuer) || !reflect.DeepEqual(old.Audiences, replacement.Audiences) {
+			if !reflect.DeepEqual(old.Provider, replacement.Provider) || !reflect.DeepEqual(old.ExpectedIssuer, replacement.ExpectedIssuer) || !reflect.DeepEqual(old.Audiences, replacement.Audiences) || old.Lifetime != replacement.Lifetime {
 				if *old.Enabled || *replacement.Enabled {
 					return provider.Trust
 				}

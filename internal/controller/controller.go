@@ -35,6 +35,7 @@ type runtime struct {
 	registry    *config.Registry
 	generation  string
 	registryUID string
+	leaseUID    string
 	valid       bool
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -85,8 +86,8 @@ func Run(ctx context.Context, opts Options, metrics *observe.Metrics) error {
 	if _, err := store.Read(startup); err != nil {
 		return err
 	}
-	r := &runtime{client: client, opts: opts, metrics: metrics, offsets: map[string]int{}}
-	r.engine = &reconcile.Engine{Management: client, Store: store, Now: time.Now, Observe: metrics.Record, State: metrics.State, Event: metrics.Event, IssuerMetric: metrics.Issuer, Providers: map[string]provider.IssuerProvider{
+	r := &runtime{client: client, opts: opts, leaseUID: string(lease.UID), metrics: metrics, offsets: map[string]int{}}
+	r.engine = &reconcile.Engine{Management: client, Store: store, Current: r.current, Leader: r.leader, Now: time.Now, Observe: metrics.Record, State: metrics.State, Event: metrics.Event, IssuerMetric: metrics.Issuer, Providers: map[string]provider.IssuerProvider{
 		"SecretIssuer": provider.SecretIssuer{Management: client, Now: time.Now},
 		"OAuthTokenExchange": provider.OAuthTokenExchange{Management: client, Now: time.Now, Subject: func(volume string) ([]byte, error) {
 			if volume == "" || strings.ContainsAny(volume, "/\\.") || opts.SubjectRoot == "" {
