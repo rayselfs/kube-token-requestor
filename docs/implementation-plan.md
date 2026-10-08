@@ -1,6 +1,7 @@
 # Implementation plan
 
-Status: approved direction, pending implementation and runtime acceptance.
+Status: M0 delivered; M1 config parser/CLI implemented. Providers, issuance and runtime acceptance
+remain pending. No M1 milestone completion is claimed.
 Each milestone is a small PR from latest origin/main in an isolated worktree.
 No milestone authorizes a live cluster mutation or automatic production activation.
 
