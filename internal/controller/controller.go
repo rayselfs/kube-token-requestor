@@ -285,10 +285,14 @@ func (r *runtime) lead(ctx context.Context) {
 	}
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
+	knownGeneration := ""
 	for {
 		r.mu.RLock()
-		for _, target := range r.registry.Clusters {
-			queue.Add(target.ID)
+		if knownGeneration != r.generation {
+			for _, target := range r.registry.Clusters {
+				queue.Add(target.ID)
+			}
+			knownGeneration = r.generation
 		}
 		r.mu.RUnlock()
 		select {

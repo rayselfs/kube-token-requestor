@@ -32,6 +32,7 @@ type Engine struct {
 	IssuerMetric func(string, time.Time, time.Time)
 	mu           sync.Mutex
 	blocked      map[string]string
+	throttled    map[string]throttle
 	retries      map[string]retry
 	expiries     map[string]time.Time
 }
@@ -48,6 +49,11 @@ func (e *Engine) Delay(c config.Cluster, requested time.Duration) time.Duration 
 		}
 	}
 	return requested
+}
+
+type throttle struct {
+	revision string
+	until    time.Time
 }
 
 type retry struct {
@@ -143,19 +149,33 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 		acquisition = err
 		e.mu.Lock()
 		blocked := e.blocked[c.ID] == revision && revision != ""
+		budget := e.throttled[c.ID]
 		e.mu.Unlock()
 		if blocked {
 			acquisition = provider.Auth
+		} else if acquisition == nil && budget.revision == revision && budget.until.After(e.Now()) {
+			acquisition = &provider.Retry{After: budget.until.Sub(e.Now())}
 		}
+		attempted := false
 		selected := e.Providers[c.Provider.Type]
 		if acquisition != nil {
 			// Retry only metadata after bootstrap rejection until a reviewed input changes.
 		} else if selected == nil {
 			acquisition = provider.Trust
 		} else {
+			attempted = true
 			identity, acquisition = selected.Acquire(ctx, c)
+			var limited *provider.Retry
+			if errors.As(acquisition, &limited) {
+				e.mu.Lock()
+				if e.throttled == nil {
+					e.throttled = map[string]throttle{}
+				}
+				e.throttled[c.ID] = throttle{revision: revision, until: e.Now().Add(min(limited.After, 5*time.Minute))}
+				e.mu.Unlock()
+			}
 		}
-		if c.Provider.Type == "OAuthTokenExchange" && e.Event != nil {
+		if attempted && c.Provider.Type == "OAuthTokenExchange" && e.Event != nil {
 			outcome := "Healthy"
 			if acquisition != nil {
 				outcome = provider.Classify(acquisition).Error()
@@ -182,7 +202,7 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 			e.mu.Unlock()
 		}
 	}
-	var last error
+	last := acquisition
 	for _, consumer := range c.Consumers[offset:end] {
 		if ctx.Err() != nil {
 			return provider.Transport
