@@ -1,0 +1,52 @@
+name: Record owner-approved production acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact stable version binding this main commit
+        required: true
+        type: string
+      report:
+        description: Sanitized JSON report with every acceptance scenario and evidence references; no private inventory
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    if: github.ref == 'refs/heads/main' && github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Validate exact-source owner report
+        env:
+          REPORT: ${{ inputs.report }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, re, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          from release import gate
+          report = os.environ['REPORT']
+          assert len(report.encode()) <= 65536
+          assert not re.search(r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|PRIVATE KEY', report)
+          evidence = json.loads(report)
+          assert evidence['ownerApproval'] == os.environ['GITHUB_ACTOR']
+          assert gate(os.environ['VERSION'], os.environ['GITHUB_SHA'], evidence) == 'accepted'
+          records = list(evidence['scenarios'].values()) + evidence['acceptedMatrix']
+          for record in records:
+            assert record['evidenceURI'].startswith('https://github.com/' + os.environ['GITHUB_REPOSITORY'] + '/')
+          Path(os.environ['RUNNER_TEMP'], 'acceptance.json').write_text(json.dumps(evidence, indent=2) + '\n')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-acceptance-${{ inputs.version }}
+          path: ${{ runner.temp }}/acceptance.json
+          if-no-files-found: error
+          retention-days: 30
