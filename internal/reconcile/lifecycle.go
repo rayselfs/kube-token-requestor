@@ -155,7 +155,16 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 	if *d.Spec.Replicas == 0 {
 		if err := scale(ctx, e.Management, consumer, 0, 1); err != nil {
 			if err == provider.Conflict {
-				return e.cancelRestart(ctx, consumer, entry)
+				current, readErr := deployment(ctx, e.Management, consumer)
+				if readErr != nil {
+					return readErr
+				}
+				// Status-only RV changes do not revoke an owned restart. A new zero
+				// generation proves an intervening spec change; explicit suspension
+				// disables the consumer to also cover a no-op scale-to-zero.
+				if *current.Spec.Replicas == 0 && current.Generation != d.Generation {
+					return e.cancelRestart(ctx, consumer, entry)
+				}
 			}
 			return err
 		}
@@ -195,6 +204,13 @@ func (e *Engine) stopRenewal(ctx context.Context, consumer config.Consumer, entr
 	}
 	if err != provider.Conflict {
 		return err
+	}
+	current, readErr := deployment(ctx, e.Management, consumer)
+	if readErr != nil {
+		return readErr
+	}
+	if *current.Spec.Replicas == 1 {
+		return provider.Conflict
 	}
 	return e.cancelRestart(ctx, consumer, entry)
 }

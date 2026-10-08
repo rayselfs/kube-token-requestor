@@ -49,7 +49,7 @@ func stopStart(root, path string) (result error) {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
 	defer cancel()
 	uid, err := management.CoreV1().Namespaces().Get(ctx, "kube-system", meta.GetOptions{})
 	if err != nil || string(uid.UID) != values.Registry.ManagementUID {
@@ -268,7 +268,7 @@ func stopStart(root, path string) (result error) {
 	}
 	seen := map[types.UID]bool{}
 	phase = "two-pod-replacements"
-	deadline := time.Now().Add(3 * time.Minute)
+	deadline := time.Now().Add(6 * time.Minute)
 	for time.Now().Before(deadline) {
 		pods, err := management.CoreV1().Pods(ns).List(ctx, meta.ListOptions{LabelSelector: "app=" + consumer.ID})
 		if err != nil {
@@ -276,7 +276,10 @@ func stopStart(root, path string) (result error) {
 		}
 		for _, p := range pods.Items {
 			if p.DeletionTimestamp == nil && len(p.Status.ContainerStatuses) == 1 && p.Status.ContainerStatuses[0].Ready {
-				seen[p.UID] = true
+				if !seen[p.UID] {
+					seen[p.UID] = true
+					fmt.Println("local StopStart distinct Ready Pod count:", len(seen))
+				}
 			}
 		}
 		if len(seen) >= 3 {
