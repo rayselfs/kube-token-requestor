@@ -20,7 +20,7 @@ import (
 
 // observe keeps credentials in memory and emits only synthetic acceptance summaries.
 func observe(root, path string, duration time.Duration) error {
-	if duration < 11*time.Minute || duration > 49*time.Hour {
+	if duration < 13*time.Minute || duration > 49*time.Hour {
 		return provider.Trust
 	}
 	data, err := os.ReadFile(path)
@@ -103,10 +103,12 @@ func observe(root, path string, duration time.Duration) error {
 			return err
 		}
 		if !oldRejected && time.Now().After(oldExpiry.Add(10*time.Second)) {
-			if issue.ValidateConsumer(ctx, oldClient, c, consumer) != provider.Auth {
+			rejected := issue.ValidateConsumer(ctx, oldClient, c, consumer)
+			if rejected == provider.Auth {
+				oldRejected = true
+			} else if rejected != nil || time.Now().After(oldExpiry.Add(2*time.Minute)) {
 				return provider.Trust
 			}
-			oldRejected = true
 		}
 		// A ready process with failed reflectors is not accepted CA reload evidence.
 		lines := int64(30)

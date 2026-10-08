@@ -37,7 +37,7 @@ func run() error {
 	root := flag.String("kubeconfigs", "", "task-local kind kubeconfig directory")
 	out := flag.String("values", "", "non-secret generated Helm values path")
 	action := flag.String("action", "bootstrap", "bootstrap or assert")
-	duration := flag.Duration("duration", 12*time.Minute, "local rotation observation duration")
+	duration := flag.Duration("duration", 13*time.Minute, "local rotation observation duration")
 	digest := flag.String("ca-digest", "sha256:"+strings.Repeat("1", 64), "synthetic stopped CA image digest")
 	flag.Parse()
 	if *root == "" || *out == "" {

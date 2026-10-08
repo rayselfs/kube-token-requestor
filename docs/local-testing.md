@@ -22,11 +22,11 @@ from registry outputs and pass it explicitly; synthetic stopped-image hashes are
   containers, normal TokenFile volumes, read-only management CAPI discovery and frequent renewal.
 - `observe`: read-only, verify the first actual CA Pod has no replacement/restarts, repeated
   restricted API access, at least two token changes, rejection of the original token after
-  its actual expiry and absence of authentication/authorization failures in recent CA logs.
+  its actual expiry (with a bounded two-minute rejection grace) and absence of authentication/authorization failures in recent CA logs.
 
 Arguments are `--kubeconfigs` (protected directory containing `management`, `child-a`, `child-b`),
 `--values` (non-secret generated values), `--ca-digest` and `--duration` for observation. Observation
-requires at least eleven minutes and emits no credential payloads. It is accelerated reload
+requires at least thirteen minutes and emits no credential payloads. It is accelerated reload
 acceptance, not the required 48-hour natural-lifetime adoption evidence.
 
 `integration/fixtures/capi-crds.json` is a minimal empty local discovery fixture. It installs no
