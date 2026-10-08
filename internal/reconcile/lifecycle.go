@@ -154,6 +154,9 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 	}
 	if *d.Spec.Replicas == 0 {
 		if err := scale(ctx, e.Management, consumer, 0, 1); err != nil {
+			if err == provider.Conflict {
+				return e.cancelRestart(ctx, consumer, entry)
+			}
 			return err
 		}
 	}
@@ -165,7 +168,7 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 			return err
 		}
 		if *current.Spec.Replicas != 1 {
-			return provider.Conflict
+			return e.cancelRestart(ctx, consumer, entry)
 		}
 		if current.Status.ObservedGeneration >= current.Generation && current.Status.ReadyReplicas == 1 {
 			break
@@ -193,6 +196,10 @@ func (e *Engine) stopRenewal(ctx context.Context, consumer config.Consumer, entr
 	if err != provider.Conflict {
 		return err
 	}
+	return e.cancelRestart(ctx, consumer, entry)
+}
+
+func (e *Engine) cancelRestart(ctx context.Context, consumer config.Consumer, entry *status.Consumer) error {
 	d, readErr := deployment(ctx, e.Management, consumer)
 	if readErr != nil {
 		return readErr
