@@ -26,7 +26,7 @@ func TestClientRejectsPlaintextAPI(t *testing.T) {
 }
 
 func TestIssuerIdentityAndNamedPermissions(t *testing.T) {
-	for _, mode := range []string{"valid", "wrong-uid", "wrong-principal", "privileged", "wildcard-token"} {
+	for _, mode := range []string{"valid", "wrong-uid", "wrong-principal", "privileged", "wildcard-token", "secret-list"} {
 		t.Run(mode, func(t *testing.T) {
 			c := config.Cluster{KubeSystemUID: "cluster-uid", IdentityNamespace: "identity", ExpectedIssuer: config.Principal{Username: "issuer", Groups: []string{"system:authenticated"}}, Consumers: []config.Consumer{{ServiceAccount: config.ServiceAccount{Name: "ca", UID: "ca-uid"}}}}
 			client := fake.NewClientset(&core.Namespace{ObjectMeta: meta.ObjectMeta{Name: "kube-system", UID: "cluster-uid"}}, &core.ServiceAccount{ObjectMeta: meta.ObjectMeta{Namespace: "identity", Name: "ca", UID: "ca-uid"}})
@@ -45,6 +45,13 @@ func TestIssuerIdentityAndNamedPermissions(t *testing.T) {
 				attr := a.(kt.CreateAction).GetObject().(*authz.SelfSubjectAccessReview).Spec.ResourceAttributes
 				allowed := attr.Resource == "serviceaccounts" && attr.Subresource == "token" && (attr.Name == "ca" || mode == "wildcard-token")
 				return true, &authz.SelfSubjectAccessReview{Status: authz.SubjectAccessReviewStatus{Allowed: allowed}}, nil
+			})
+			client.PrependReactor("create", "selfsubjectrulesreviews", func(kt.Action) (bool, runtime.Object, error) {
+				rules := []authz.ResourceRule{}
+				if mode == "secret-list" {
+					rules = append(rules, authz.ResourceRule{APIGroups: []string{""}, Resources: []string{"secrets"}, Verbs: []string{"list"}})
+				}
+				return true, &authz.SelfSubjectRulesReview{Status: authz.SubjectRulesReviewStatus{ResourceRules: rules}}, nil
 			})
 			if mode == "wrong-uid" {
 				c.KubeSystemUID = "wrong"

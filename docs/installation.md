@@ -38,6 +38,13 @@ public CA hashes, cluster/SA/object UIDs and exact CA image digests. Keep creden
 pre-existing mutable Opaque Secrets, never Helm values, command arguments or Git. Restrict access
 and enable Kubernetes Secret encryption at rest. The chart owns no credential Secret.
 
+The workload API must support a complete SelfSubjectRulesReview for the enrolled identity
+namespace. Effective resource grants (including cluster bindings) are checked against the issuer
+or scheduling-read/events profile; wildcard access, credential reads and unrelated writes are
+rejected. Standard public discovery/JWKS GET grants are allowed. An incomplete/erroring authorizer
+fails closed. Review additional bindings in other namespaces independently: this review cannot
+enumerate arbitrary external RoleBindings and does not replace an operator RBAC audit.
+
 For SecretIssuer, source keys are `ca.crt` and `token`; a long-lived source also requires the
 `token-requestor.io/rotated-at` RFC3339 annotation. Output keys are `ca.crt` and `token`, with
 `token-requestor.io/consumer` equal to the registered consumer ID. OAuth trust keys are `ca.crt`

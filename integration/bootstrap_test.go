@@ -72,7 +72,7 @@ func TestBootstrapHasNoWildcardOrUnrelatedWriteGrants(t *testing.T) {
 						case "authentication.k8s.io":
 							allowed = resource == "selfsubjectreviews" && verb == "create"
 						case "authorization.k8s.io":
-							allowed = resource == "selfsubjectaccessreviews" && verb == "create"
+							allowed = (resource == "selfsubjectaccessreviews" || resource == "selfsubjectrulesreviews") && verb == "create"
 						}
 					}
 					if !allowed {
