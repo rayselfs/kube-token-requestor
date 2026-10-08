@@ -1,6 +1,7 @@
 # GitHub release and compatibility contract
 
-Status: planned. No runtime version/image/chart exists or is supported yet.
+Status: runtime/source chart and paired release automation implemented. No published artifacts or
+production support claim yet. RC publication remains subject to live registry/platform smoke.
 
 ## Artifact locations
 
@@ -63,7 +64,7 @@ Digests are obtained from registry/build outputs, never predicted placeholders. 
 missing evidence or mismatched chart appVersion/image/source commit fail promotion. Synthetic
 fixtures are labeled; private evidence references do not publish private cluster inventory.
 
-## Planned GitHub Actions pipeline
+## GitHub Actions pipeline
 
 1. PR/main validation: spec/config checks, pinned Go tests/race/vet/fuzz seeds, local API integration,
    security/license scans and Helm lifecycle tests. Read-only permissions; no real cluster access.
@@ -97,6 +98,28 @@ Downgrade tests prove old binary can read preserved registry/status/Secret shape
 manifest declares downgrade unsupported and provides a reviewed migration. Helm must not reset
 runtime status/restart intent or delete external credentials. Normal image updates use HA rolling
 strategy; leadership loss drains in-flight work. Recovery preserves all worker/CP replicas.
+
+## Dispatch and promotion
+
+After all `go`/`spec` checks pass on the exact main commit, the repository owner dispatches
+`Paired GitHub release` with an unused version. The workflow runs only on main by its owner,
+creates a draft first and never overwrites existing Git/OCI tags. Build/sign jobs alone hold
+packages-write and OIDC permissions; native anonymous verification jobs have no registry login.
+The final job publishes only after both platforms pass image/signature and complete Helm lifecycle
+checks. Failed publication remains draft; rerun failed jobs from the same run rather than rebuilding
+or replacing versioned bytes. Use a corrective version when source/artifact bytes change.
+
+A stable version requires a separate owner-approved acceptance artifact bound to the same main
+commit. Dispatch `Record owner-approved production acceptance` with the sanitized report, then
+pass its immutable numeric artifact ID to the release workflow. Metadata must prove the version,
+exact main SHA and unexpired artifact; report contents require all A01–A24 evidence, >=48 hours,
+>=2 natural rotations, actual alert delivery and the owner's identity. Evidence references point
+only to sanitized records in this public repository; no private endpoints/inventory belong in the
+report. The report lives outside source so its commit binding has no circular self-reference.
+
+Only `vX.Y.Z-rc.N` can publish without stable evidence; its manifest is explicitly experimental
+with no accepted matrix rows. An RC is deployable for reviewed acceptance, not a production claim.
+Package visibility must allow anonymous native pull; public source visibility alone is insufficient.
 
 ## Initial repository delivery
 
