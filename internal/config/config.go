@@ -272,6 +272,9 @@ func exactFields(value any, typ reflect.Type) bool {
 	return true
 }
 
+// APIEndpoint accepts only canonical, credential-free TLS API endpoints.
+func APIEndpoint(value string) bool { return endpoint(value, false) }
+
 func endpoint(value string, token bool) bool {
 	u, err := url.Parse(value)
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery ||

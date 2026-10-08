@@ -1,6 +1,6 @@
 # Shared Kubernetes TokenRequestor specification
 
-Version: draft 0.1. Status: config parser/validator implemented; controller runtime pending.
+Version: draft 0.1. Status: config and issuer/issuance core implemented; shared runtime pending.
 MUST / MUST NOT define release requirements. Proposed defaults are subject to measured acceptance.
 
 ## 1. Goals, scope and topology
@@ -69,7 +69,9 @@ The issuer is a dedicated ServiceAccount distinct from every CA consumer. Its au
 named `serviceaccounts/token` creation for enrolled CA SAs plus required identity checks.
 It MUST NOT issue for itself or arbitrary SAs, manage RBAC, read application Secrets, modify
 Nodes or use cluster-admin. Replacing the issuer MUST retain the pinned Secret UID using CAS.
-Default rotation policy is 90 days, owned by the enrolling operator; policy compliance MUST be
+The source carries `token-requestor.io/rotated-at` (RFC3339). Missing/future/overdue rotation
+metadata fails acquisition. Default rotation policy is 90 days, owned by the enrolling operator;
+policy compliance MUST be
 tracked independently of token expiry. A manually created long-lived SA token is not automatically
 rotated and does not expire by design. Platform credential policy may require a shorter period.
 
@@ -85,14 +87,16 @@ device login, password grant or a stored user refresh token. Only HTTPS token en
 | subject_token_type | `urn:ietf:params:oauth:token-type:jwt` |
 | requested_token_type | `urn:ietf:params:oauth:token-type:access_token` |
 | audience | Exact reviewed workload-API audience |
-| scope | Explicit configured set; no implicit admin scope |
+| scope | Explicit configured set; no implicit admin scope; response scope must match the configured set |
 | client authentication | `client_secret_basic` from a pinned Secret; no inline credentials |
 | response | access_token, token_type Bearer, issued_token_type access_token, positive expires_in |
 
 Token exchange MUST use form encoding, bounded bodies (64 KiB), timeouts, TLS validation and no
 redirects. Reject duplicate JSON keys, missing/wrong types, unexpected token types, invalid or
 excessive lifetime, error responses and malformed bearer values. No URL/query credential transport.
-Client secrets MUST NOT be sent to discovery/JWKS endpoints or logged. Basic auth is only for the
+Trust Secret keys are exactly `ca.crt` (broker TLS) and `api-ca.crt` (pinned workload API trust);
+the client Secret contains exactly `client-secret`. Client secrets MUST NOT be sent to discovery/JWKS
+endpoints or logged. Basic auth is only for the
 pinned token endpoint. The subject JWT is reread on each exchange; never cached past expiry.
 Use projected-volume JWT with a dedicated broker audience; it is not the default API token.
 Its mount path MUST match an explicitly rendered volume, with no subPath or arbitrary file reads.
@@ -173,7 +177,7 @@ mixing production and nonproduction credentials. v1 supports one management API 
 | --- | --- |
 | Controller namespace | GET named registry; GET/UPDATE named status CM and precreated Lease |
 | Management identity | GET named kube-system Namespace |
-| Enrolled namespace | GET/PATCH named issuer/output Secrets; OAuth credential refs GET only |
+| Enrolled namespace | GET named issuer/provider Secrets; GET/PATCH named outputs only |
 | CA namespace | GET named Deployment and /scale; PATCH named /scale for guarded stop/restart |
 | Child identity namespace | CREATE named SA /token; GET enrolled SAs |
 | Child identity guard | GET named kube-system Namespace; own SelfSubjectReview/AccessReview |

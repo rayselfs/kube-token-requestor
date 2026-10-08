@@ -3,7 +3,7 @@
 A shared Kubernetes credential controller designed to issue and distribute short-lived
 ServiceAccount tokens to multiple Cluster Autoscalers across multiple workload clusters.
 
-**Status: configuration-validation CLI implemented; controller runtime pending.** No Helm chart,
+**Status: configuration CLI and issuer/issuance core implemented; controller runtime pending.** No Helm chart,
 container image, release, or production compatibility has been published yet.
 
 One Deployment serves all enrolled clusters and consumers. Two replicas provide leader-elected
@@ -57,3 +57,7 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
 
 The checks validate documentation links and the synthetic example, not runtime security.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

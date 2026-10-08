@@ -1,7 +1,8 @@
 # Implementation plan
 
-Status: M0 delivered; M1 config parser/CLI implemented. Providers, issuance and runtime acceptance
-remain pending. No M1 milestone completion is claimed.
+Status: M0 delivered; config, SecretIssuer, RFC 8693 exchange, TokenRequest, identity/rights checks and
+output CAS are implemented. Shared runtime and repeatable real-API acceptance remain pending;
+unit/protocol tests do not claim complete M1/M2 acceptance.
 Each milestone is a small PR from latest origin/main in an isolated worktree.
 No milestone authorizes a live cluster mutation or automatic production activation.
 
