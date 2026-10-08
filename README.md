@@ -3,7 +3,7 @@
 A shared Kubernetes credential controller designed to issue and distribute short-lived
 ServiceAccount tokens to multiple Cluster Autoscalers across multiple workload clusters.
 
-**Status: specification and implementation plan only.** No controller binary, Helm chart,
+**Status: configuration-validation CLI implemented; controller runtime pending.** No Helm chart,
 container image, release, or production compatibility has been published yet.
 
 One Deployment serves all enrolled clusters and consumers. Two replicas provide leader-elected
@@ -43,12 +43,15 @@ The project is environment-neutral. No company endpoints, cluster UIDs, credenti
 infrastructure inventory belong here. Installation-specific values and approvals live in the
 operator's configuration repository. No commercial access platform is required.
 
-This initial repository intentionally has no deployable chart or automatic release workflow.
+This repository currently has no deployable controller/chart or automatic release workflow.
 Their behavior and implementation gates are specified before credentials are managed.
 
 ## Check the specification package
 
 ```sh
+go run ./cmd/kube-token-requestor validate-config < examples/registry.json
+go test -race ./...
+go vet ./...
 python3 scripts/check-spec.py
 python3 -m unittest discover -s scripts -p 'test_*.py'
 ```

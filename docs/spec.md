@@ -1,6 +1,6 @@
 # Shared Kubernetes TokenRequestor specification
 
-Version: draft 0.1. Status: normative implementation contract; runtime not implemented.
+Version: draft 0.1. Status: config parser/validator implemented; controller runtime pending.
 MUST / MUST NOT define release requirements. Proposed defaults are subject to measured acceptance.
 
 ## 1. Goals, scope and topology
@@ -120,11 +120,15 @@ all bootstrap dependencies. Future private_key_jwt or other grants require expli
 REQ-08: One named ConfigMap holds versioned non-secret JSON. Platform operators own it through
 GitOps; the controller has read-only access. Typed decoding rejects unknown/duplicate fields,
 missing required values, unsupported schema, invalid UUIDs, duplicate targets and documents >1 MiB.
-CLI `validate-config` uses the same validation. The example is synthetic and disabled, not applyable.
+CLI `validate-config` reads stdin and uses the same validation. Registry/consumer IDs, namespaces
+and volume names use DNS labels (63 characters); Kubernetes object names allow DNS subdomains
+(253 characters). v1 bounds enrollments to 100 clusters and 100 consumers per cluster.
+The example is synthetic and disabled, not applyable.
 
 Global fields: schemaVersion, managementUID and clusters[]. Cluster fields:
 
-- id, enabled, endpoint (HTTPS; no userinfo/query/fragment), kubeSystemUID and caSHA256.
+- id, enabled, endpoint (HTTPS with explicit numeric port; no userinfo/query/fragment),
+  kubeSystemUID and caSHA256.
 - identityNamespace; provider discriminated config (`SecretIssuer` OR `OAuthTokenExchange`).
 - expected issuer username/groups; named identity checks; exact TokenRequest audiences.
 - lifetime: requestedSeconds, acceptedMinSeconds, acceptedMaxSeconds, renewBeforeSeconds,
@@ -141,7 +145,8 @@ not trusted merely because JWT claims decode correctly.
 
 Output Secrets MUST preexist, be mutable Opaque and have exactly `ca.crt`, `token` keys. They
 MUST match pinned UIDs and ownership IDs. Issuer/client/TLS refs MUST NOT collide with outputs;
-no two enrollments may own the same output or duplicate a consumer SA identity. Distinct CAs
+no two enrollments may own the same output or duplicate a consumer SA identity.
+A SecretIssuer source is dedicated to one workload cluster and cannot double as an OAuth source. Distinct CAs
 receive distinct tokens; the controller does not fan out one JWT. Missing/mismatched objects
 require operator action, not automatic creation/adoption.
 
