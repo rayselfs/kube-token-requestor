@@ -67,8 +67,9 @@ func scale(ctx context.Context, client kubernetes.Interface, consumer config.Con
 	patch, _ := json.Marshal([]map[string]any{
 		{"op": "test", "path": "/metadata/uid", "value": consumer.CADeployment.UID},
 		{"op": "test", "path": "/metadata/resourceVersion", "value": s.ResourceVersion},
-		{"op": "test", "path": "/spec/replicas", "value": from},
-		{"op": "replace", "path": "/spec/replicas", "value": to},
+		// ScaleSpec omits its scalar replicas field when zero. UID/RV CAS binds the
+		// already-checked desired count, and add supports both absent and present fields.
+		{"op": "add", "path": "/spec/replicas", "value": to},
 	})
 	_, err = client.AppsV1().Deployments(consumer.CADeployment.Namespace).Patch(ctx, consumer.CADeployment.Name, types.JSONPatchType, patch, meta.PatchOptions{}, "scale")
 	return provider.Classify(err)
@@ -154,6 +155,18 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 	}
 	if *d.Spec.Replicas == 0 {
 		if err := scale(ctx, e.Management, consumer, 0, 1); err != nil {
+			if err == provider.Conflict {
+				current, readErr := deployment(ctx, e.Management, consumer)
+				if readErr != nil {
+					return readErr
+				}
+				// Status-only RV changes do not revoke an owned restart. A new zero
+				// generation proves an intervening spec change; explicit suspension
+				// disables the consumer to also cover a no-op scale-to-zero.
+				if *current.Spec.Replicas == 0 && current.Generation != d.Generation {
+					return e.cancelRestart(ctx, consumer, entry)
+				}
+			}
 			return err
 		}
 	}
@@ -165,7 +178,7 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 			return err
 		}
 		if *current.Spec.Replicas != 1 {
-			return provider.Conflict
+			return e.cancelRestart(ctx, consumer, entry)
 		}
 		if current.Status.ObservedGeneration >= current.Generation && current.Status.ReadyReplicas == 1 {
 			break
@@ -193,6 +206,17 @@ func (e *Engine) stopRenewal(ctx context.Context, consumer config.Consumer, entr
 	if err != provider.Conflict {
 		return err
 	}
+	current, readErr := deployment(ctx, e.Management, consumer)
+	if readErr != nil {
+		return readErr
+	}
+	if *current.Spec.Replicas == 1 {
+		return provider.Conflict
+	}
+	return e.cancelRestart(ctx, consumer, entry)
+}
+
+func (e *Engine) cancelRestart(ctx context.Context, consumer config.Consumer, entry *status.Consumer) error {
 	d, readErr := deployment(ctx, e.Management, consumer)
 	if readErr != nil {
 		return readErr

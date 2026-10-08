@@ -2,6 +2,7 @@ package reconcile
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -184,5 +185,88 @@ func TestManualScaleConflictCancelsRestartAuthority(t *testing.T) {
 		if action.GetVerb() == "patch" {
 			t.Fatal("already stopped deployment was modified")
 		}
+	}
+}
+
+func TestStartingConflictCancelsRestartAuthority(t *testing.T) {
+	now := time.Unix(2000000000, 0)
+	zero, one := int32(0), int32(1)
+	digest := "sha256:" + strings.Repeat("1", 64)
+	consumer := config.Consumer{ID: "ca", Secret: config.Ref{Name: "output"}, CADeployment: config.Deployment{Namespace: "ns", Name: "ca", UID: "deployment-uid", ImageDigest: digest}}
+	d := &apps.Deployment{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "ca", UID: "deployment-uid"}, Spec: apps.DeploymentSpec{Replicas: &zero, Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{{Image: "test@" + digest, VolumeMounts: []core.VolumeMount{{Name: "identity", ReadOnly: true}}}}, Volumes: []core.Volume{{Name: "identity", VolumeSource: core.VolumeSource{Secret: &core.SecretVolumeSource{SecretName: "output"}}}}}}}}
+	client := fake.NewClientset(&core.ConfigMap{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "status", UID: "status-uid"}}, d)
+	reads := 0
+	client.PrependReactor("get", "deployments", func(action kt.Action) (bool, runtime.Object, error) {
+		reads++
+		if reads != 1 {
+			return false, nil, nil
+		}
+		active := d.DeepCopy()
+		active.Spec.Replicas = &one
+		return true, active, nil
+	})
+	store := &status.Store{Client: client, Namespace: "ns", Name: "status", UID: "status-uid"}
+	engine := &Engine{Management: client, Store: store, Now: func() time.Time { return now }}
+	entry := status.Consumer{Intent: &status.Intent{Generation: "current", DeploymentUID: "deployment-uid", Replicas: 1, Phase: "Published", CandidateExpiry: now.Add(time.Hour)}}
+	if err := engine.save(context.Background(), consumer.ID, &entry); err != nil {
+		t.Fatal(err)
+	}
+	if err := engine.resume(context.Background(), consumer, &entry, "current"); err != provider.Conflict {
+		t.Fatal("operator stop during Starting was not reported", err)
+	}
+	state, err := store.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopped := state.Consumers[consumer.ID]
+	if !stopped.StopLatched || stopped.Intent != nil {
+		t.Fatal("Starting conflict retained automatic restart authority")
+	}
+	for _, action := range client.Actions() {
+		if action.GetVerb() == "patch" {
+			t.Fatal("already stopped CA was changed")
+		}
+	}
+}
+
+func TestStatusOnlyScaleConflictsRetainRestart(t *testing.T) {
+	for _, replicas := range []int32{0, 1} {
+		t.Run(fmt.Sprint(replicas), func(t *testing.T) {
+			now := time.Unix(2000000000, 0)
+			digest := "sha256:" + strings.Repeat("1", 64)
+			consumer := config.Consumer{ID: "ca", Secret: config.Ref{Name: "output"}, CADeployment: config.Deployment{Namespace: "ns", Name: "ca", UID: "deployment-uid", ImageDigest: digest}}
+			d := &apps.Deployment{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "ca", UID: "deployment-uid", Generation: 4}, Spec: apps.DeploymentSpec{Replicas: &replicas, Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{{Image: "test@" + digest, VolumeMounts: []core.VolumeMount{{Name: "identity", ReadOnly: true}}}}, Volumes: []core.Volume{{Name: "identity", VolumeSource: core.VolumeSource{Secret: &core.SecretVolumeSource{SecretName: "output"}}}}}}}}
+			client := fake.NewClientset(&core.ConfigMap{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "status", UID: "status-uid"}}, d)
+			client.PrependReactor("get", "deployments", func(a kt.Action) (bool, runtime.Object, error) {
+				if a.GetSubresource() != "scale" {
+					return false, nil, nil
+				}
+				return true, &autoscaling.Scale{ObjectMeta: meta.ObjectMeta{UID: "deployment-uid", ResourceVersion: "before-status-update"}, Spec: autoscaling.ScaleSpec{Replicas: replicas}}, nil
+			})
+			client.PrependReactor("patch", "deployments", func(kt.Action) (bool, runtime.Object, error) { return true, nil, provider.Conflict })
+			store := &status.Store{Client: client, Namespace: "ns", Name: "status", UID: "status-uid"}
+			engine := &Engine{Management: client, Store: store, Now: func() time.Time { return now }}
+			entry := status.Consumer{Intent: &status.Intent{Generation: "current", DeploymentUID: "deployment-uid", Replicas: 1, Phase: "Published", CandidateExpiry: now.Add(time.Hour)}}
+			if err := engine.save(context.Background(), consumer.ID, &entry); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			if replicas == 0 {
+				err = engine.resume(context.Background(), consumer, &entry, "current")
+			} else {
+				err = engine.stopRenewal(context.Background(), consumer, &entry, 1)
+			}
+			if err != provider.Conflict {
+				t.Fatal("CAS conflict not returned", err)
+			}
+			state, err := store.Read(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			retained := state.Consumers[consumer.ID]
+			if retained.StopLatched || retained.Intent == nil {
+				t.Fatal("status-only conflict discarded owned restart")
+			}
+		})
 	}
 }
