@@ -1,7 +1,14 @@
 # GitHub release and compatibility contract
 
-Status: runtime/source chart and paired release automation implemented. No published artifacts or
-production support claim yet. RC publication remains subject to live registry/platform smoke.
+Status: `v0.1.0-rc.2` is published with public signed image/chart and native platform/Helm smoke.
+The support status is experimental; its accepted production matrix remains empty.
+
+RC2 binds source `36a37434498a6f084f4c862509e1971ef6668a7e`. Both native platforms passed anonymous
+pulls, signature verification, startup and retained-state Helm install/upgrade/uninstall/reinstall
+on synthetic Kubernetes 1.35.8. The publisher's wildcard artifact selection failed afterwards;
+publication was completed from the same original verified assets, without rebuilding/overwriting
+OCI bytes. [Release notes](https://github.com/rayselfs/kube-token-requestor/releases/tag/v0.1.0-rc.2)
+record that limit. The workflow correction selects only release assets and platform smoke records.
 
 ## Artifact locations
 
