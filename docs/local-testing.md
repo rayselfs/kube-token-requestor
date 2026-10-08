@@ -38,6 +38,12 @@ from registry outputs and pass it explicitly; synthetic stopped-image hashes are
   two. A failed run may leave a latched safety stop requiring reviewed recovery; do not erase
   runtime state or automatically acknowledge it to force a rerun.
 
+- `revoke-issuer`: in the accelerated synthetic fixture, validate a new restricted child-a
+  issuer token, CAS-adopt it into the same management source UID, delete only the pinned
+  predecessor child token Secret and prove old API authentication fails. Both children must
+  rotate and the active CA Pod must stay Ready with the same UID. Once adopted, keep the new
+  restricted source; never restore the revoked predecessor. A rerun requires fresh fixtures.
+
 Arguments are `--kubeconfigs` (protected directory containing `management`, `child-a`, `child-b`),
 `--values` (non-secret generated values), `--ca-digest` and `--duration` for observation. Observation
 requires at least thirteen minutes and emits no credential payloads. It is accelerated reload

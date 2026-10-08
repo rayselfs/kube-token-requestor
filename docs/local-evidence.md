@@ -44,3 +44,11 @@ consumer tokens, upstream CA 1.35.2/Kubernetes 1.35.8, and the 13-minute acceler
 observation plus issuer/consumer isolation drills. This is not OAuth, StopStart, provisioning,
 natural-lifetime or stable support acceptance. Later permission/lifecycle hardening requires a
 new release and new evidence rather than attributing it to RC2.
+
+The local RC2 fixture also passed a real restricted issuer replacement/revocation drill: the
+candidate issuer's actual child identity/effective rights were validated, the management source
+was CAS-updated without changing UID, the predecessor child token Secret was UID/RV-deleted,
+and the previous token was rejected by the real API. Both children rotated afterwards; the
+active CA retained its Ready Pod UID. The adopted replacement remains restricted and was not
+rolled back to the revoked predecessor. This is synthetic SecretIssuer recovery, not OAuth
+revocation or operator-cluster acceptance.

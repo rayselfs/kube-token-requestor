@@ -53,6 +53,9 @@ func run() error {
 	if *action == "observe" {
 		return observe(*root, *out, *duration)
 	}
+	if *action == "revoke-issuer" {
+		return revokeIssuer(*root, *out)
+	}
 	if *action == "faults" {
 		return faults(*root, *out)
 	}

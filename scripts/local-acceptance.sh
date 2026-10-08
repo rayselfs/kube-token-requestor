@@ -68,6 +68,7 @@ helm --kube-context kind-requestor-management --kubeconfig "$root/kubeconfigs/ma
 "$root/harness" --action observe --duration 13m "${args[@]}"
 "$root/harness" --action faults "${args[@]}"
 "$root/harness" --action stop-start "${args[@]}"
+"$root/harness" --action revoke-issuer "${args[@]}"
 python - "$root/assets/release-manifest.json" "$root/evidence.json" <<'PY'
 import json, os, sys
 m = json.load(open(sys.argv[1]))
@@ -77,7 +78,8 @@ json.dump({'controllerVersion':m['controllerVersion'], 'sourceCommit':m['sourceC
            'clusterAutoscaler':'1.35.2', 'provider':'SecretIssuer', 'reloadPolicy':'TokenFile',
            'realIdentityAndRBAC':True, 'sameCAPodTwoRotationsOldTokenRejected':True,
            'issuerAndStoppedConsumerIsolation':True,
-           'stopStartTwoReplacementsAndManualSuspension':True, 'scope':'synthetic empty CAPI fleet',
+           'stopStartTwoReplacementsAndManualSuspension':True,
+           'issuerReplacementAndPredecessorRevocation':True, 'scope':'synthetic empty CAPI fleet',
            'acceleratedLifetimeSeconds':600, 'naturalLifetimeAcceptance':False},
           open(sys.argv[2], 'w'), indent=2)
 PY
