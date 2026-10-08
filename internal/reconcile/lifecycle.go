@@ -67,8 +67,9 @@ func scale(ctx context.Context, client kubernetes.Interface, consumer config.Con
 	patch, _ := json.Marshal([]map[string]any{
 		{"op": "test", "path": "/metadata/uid", "value": consumer.CADeployment.UID},
 		{"op": "test", "path": "/metadata/resourceVersion", "value": s.ResourceVersion},
-		{"op": "test", "path": "/spec/replicas", "value": from},
-		{"op": "replace", "path": "/spec/replicas", "value": to},
+		// ScaleSpec omits its scalar replicas field when zero. UID/RV CAS binds the
+		// already-checked desired count, and add supports both absent and present fields.
+		{"op": "add", "path": "/spec/replicas", "value": to},
 	})
 	_, err = client.AppsV1().Deployments(consumer.CADeployment.Namespace).Patch(ctx, consumer.CADeployment.Name, types.JSONPatchType, patch, meta.PatchOptions{}, "scale")
 	return provider.Classify(err)
