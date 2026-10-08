@@ -1,0 +1,6 @@
+*
+!dist/
+!dist/linux-amd64/
+!dist/linux-amd64/kube-token-requestor
+!dist/linux-arm64/
+!dist/linux-arm64/kube-token-requestor

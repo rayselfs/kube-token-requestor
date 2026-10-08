@@ -1,8 +1,9 @@
 # Implementation plan
 
 Status: M0 delivered; config, SecretIssuer, RFC 8693 exchange, TokenRequest, identity/rights checks and
-output CAS are implemented. Shared runtime and repeatable real-API acceptance remain pending;
-unit/protocol tests do not claim complete M1/M2 acceptance.
+output CAS, shared runtime and source chart are implemented. Local two-child/three-consumer
+identity and restricted-RBAC acceptance passed. Full failure, OAuth API trust, delivery and
+long-run acceptance remain pending; unit/protocol tests do not claim complete M1/M2 acceptance.
 Each milestone is a small PR from latest origin/main in an isolated worktree.
 No milestone authorizes a live cluster mutation or automatic production activation.
 

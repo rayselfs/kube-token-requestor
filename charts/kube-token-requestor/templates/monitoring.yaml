@@ -1,0 +1,115 @@
+{{- $name := include "requestor.name" . -}}
+{{- $selector := printf "job=%q,namespace=%q" .Release.Name .Release.Namespace -}}
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+{{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1/ServiceMonitor") }}{{ fail "ServiceMonitor API must be installed before enabling monitoring" }}{{ end }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "requestor.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  jobLabel: app.kubernetes.io/instance
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-token-requestor
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+---
+{{- end }}
+{{- if .Values.monitoring.prometheusRule.enabled }}
+{{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1/PrometheusRule") }}{{ fail "PrometheusRule API must be installed before enabling monitoring" }}{{ end }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "requestor.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: kube-token-requestor
+      rules:
+        - alert: RequestorUnavailable
+          expr: {{ printf "(absent(kube_token_requestor_leader{%s}) or sum(kube_token_requestor_leader{%s}) < 1) and on() vector(%d > bool 0) == 1" $selector $selector (int .Values.replicaCount) | quote }}
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Restore the shared requestor and assess all credential deadlines.
+        - alert: MultipleLeaders
+          expr: {{ printf "sum(kube_token_requestor_leader{%s}) > 1" $selector | quote }}
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Investigate overlapping leaders and verify output CAS history.
+        - alert: ConfigRejected
+          expr: {{ printf "min(kube_token_requestor_config_valid{%s}) == 0" $selector | quote }}
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Repair or revert the enrollment registry; safety guards remain active.
+        - alert: ConsumerRenewalFailed
+          expr: {{ printf "kube_token_requestor_condition{%s,condition=~\"Transport|Conflict|TrustRejected\"} == 1" $selector | quote }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Check the affected API, grants, provider and sole output writer.
+        - alert: ConsumerExpiryWarning
+          expr: {{ printf "kube_token_requestor_token_expiry_timestamp_seconds{%s} - time() < 7200" $selector | quote }}
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Restore rotation before the safety-stop deadline.
+        - alert: ConsumerSafetyStop
+          expr: {{ printf "kube_token_requestor_condition{%s,condition=\"SafetyStopped\"} == 1" $selector | quote }}
+          labels:
+            severity: critical
+          annotations:
+            summary: Validate replacement, acknowledge only this stop, then explicitly resume the CA.
+        - alert: StopUnconfirmed
+          expr: {{ printf "kube_token_requestor_condition{%s,condition=\"StopUnconfirmed\"} == 1" $selector | quote }}
+          labels:
+            severity: critical
+          annotations:
+            summary: Urgently check the named CA; preserve all workers.
+        - alert: BootstrapRequired
+          expr: {{ printf "kube_token_requestor_condition{%s,condition=\"BootstrapRequired\"} == 1" $selector | quote }}
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Repair only the affected issuer or broker trust; never use admin fallback.
+        - alert: IssuerRotationDue
+          expr: {{ printf "kube_token_requestor_issuer_rotation_due_timestamp_seconds{%s} - time() < 604800" $selector | quote }}
+          labels:
+            severity: warning
+          annotations:
+            summary: Rotate the operator-managed issuer through the approved bootstrap channel.
+        - alert: OAuthDependencyFailure
+          expr: {{ printf "increase(kube_token_requestor_exchange_total{%s,result!=\"Healthy\"}[10m]) > 0" $selector | quote }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Verify broker, projected identity, client authentication and API trust.
+        - alert: StaleOrMissingTarget
+          expr: {{ printf "(max(kube_token_requestor_registry_targets{%s}) > (count(kube_token_requestor_last_observed_timestamp_seconds{%s}) or on() vector(0))) or (time() - kube_token_requestor_last_observed_timestamp_seconds{%s} > 120)" $selector $selector $selector | quote }}
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Restore missing target telemetry; no data is not a healthy result.
+{{- end }}

@@ -375,12 +375,20 @@ func (r *Registry) Validate() error {
 	ids, clusterUIDs, endpoints := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	outputRefs, sourceRefs, saIDs, deployments := map[string]bool{}, map[string]string{}, map[string]bool{}, map[string]bool{}
 	issuerRefs := map[string]bool{}
+	subjectVolumes := map[string]string{}
 	for _, c := range r.Clusters {
 		if c.Enabled == nil || !name(c.ID) || ids[c.ID] || !endpoint(c.Endpoint, false) || endpoints[c.Endpoint] || !identity(c.KubeSystemUID) ||
 			clusterUIDs[c.KubeSystemUID] || !hashPattern.MatchString(c.CASHA256) || !name(c.IdentityNamespace) ||
 			!distinctText(c.Audiences) || !text(c.ExpectedIssuer.Username) || !distinctText(c.ExpectedIssuer.Groups) ||
 			!c.Provider.valid(c.IdentityNamespace, c.ExpectedIssuer) || !c.Lifetime.valid() || len(c.Consumers) == 0 || len(c.Consumers) > 100 {
 			return ErrInvalid
+		}
+		if c.Provider.Type == "OAuthTokenExchange" {
+			volume := c.Provider.SubjectTokenVolume
+			if volume == "management-api" || (subjectVolumes[volume] != "" && subjectVolumes[volume] != c.Provider.SubjectTokenAudience) {
+				return ErrInvalid
+			}
+			subjectVolumes[volume] = c.Provider.SubjectTokenAudience
 		}
 		ids[c.ID], clusterUIDs[c.KubeSystemUID], endpoints[c.Endpoint] = true, true, true
 		for _, ref := range c.Provider.refs() {
@@ -403,7 +411,7 @@ func (r *Registry) Validate() error {
 			depKey := dep.Namespace + "/" + dep.Name
 			if !name(consumer.ID) || ids[consumer.ID] || !consumer.ServiceAccount.valid() || saIDs[saKey] || !ref.valid() ||
 				outputRefs[key] || sourceRefs[key] != "" || !name(dep.Namespace) || !objectName(dep.Name) || !identity(dep.UID) ||
-				deployments[depKey] || !strings.HasPrefix(dep.ImageDigest, "sha256:") || !hashPattern.MatchString(strings.TrimPrefix(dep.ImageDigest, "sha256:")) ||
+				ref.Namespace != dep.Namespace || deployments[depKey] || !strings.HasPrefix(dep.ImageDigest, "sha256:") || !hashPattern.MatchString(strings.TrimPrefix(dep.ImageDigest, "sha256:")) ||
 				(consumer.ReloadPolicy != "TokenFile" && consumer.ReloadPolicy != "StopStart") || consumer.PermissionProfile != "ca-read-events" ||
 				(consumer.Enabled == nil || (*consumer.Enabled && !*c.Enabled)) {
 				return ErrInvalid

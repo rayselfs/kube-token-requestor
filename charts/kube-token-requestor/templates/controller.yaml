@@ -1,0 +1,198 @@
+{{- $name := include "requestor.name" . -}}
+{{- if gt (int .Values.replicaCount) 0 -}}
+{{- if ne (int .Values.replicaCount) 2 }}{{ fail "active installations require two replicas" }}{{ end -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" .Values.image.digest) }}{{ fail "activation requires a released image digest" }}{{ end -}}
+{{- if eq .Values.registry.managementUID "00000000-0000-0000-0000-000000000000" }}{{ fail "activation requires the actual management kube-system UID" }}{{ end -}}
+{{- if and .Values.networkPolicy.enabled (empty .Values.networkPolicy.egress) }}{{ fail "activation requires explicit NetworkPolicy egress" }}{{ end -}}
+{{- end }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "requestor.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-registry
+  labels:
+    {{- include "requestor.labels" . | nindent 4 }}
+data:
+  registry.json: {{ .Values.registry | toJson | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-status
+  labels:
+    {{- include "requestor.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "requestor.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "requestor.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-token-requestor
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
+  template:
+    metadata:
+      labels:
+        {{- include "requestor.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: controller
+          image: {{ printf "%s@%s" .Values.image.repository (default (printf "sha256:%s" (repeat 64 "0")) .Values.image.digest) | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - --namespace={{ .Release.Namespace }}
+            - --registry={{ $name }}-registry
+            - --status={{ $name }}-status
+            - --lease={{ $name }}
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+          ports:
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: management-api
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+            {{- $volumes := dict }}
+            {{- range .Values.registry.clusters }}
+            {{- if and (eq .provider.type "OAuthTokenExchange") (not (hasKey $volumes .provider.subjectTokenVolume)) }}
+            {{- $_ := set $volumes .provider.subjectTokenVolume true }}
+            - name: {{ .provider.subjectTokenVolume }}
+              mountPath: /var/run/token-requestor/subjects/{{ .provider.subjectTokenVolume }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+      volumes:
+        - name: management-api
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace
+        {{- $volumes = dict }}
+        {{- range .Values.registry.clusters }}
+        {{- if and (eq .provider.type "OAuthTokenExchange") (not (hasKey $volumes .provider.subjectTokenVolume)) }}
+        {{- $_ := set $volumes .provider.subjectTokenVolume true }}
+        - name: {{ .provider.subjectTokenVolume }}
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: {{ .provider.subjectTokenAudience | quote }}
+                  expirationSeconds: 3600
+        {{- end }}
+        {{- end }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: {{ .Release.Name | quote }}
+                  app.kubernetes.io/name: kube-token-requestor
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      app.kubernetes.io/name: kube-token-requestor
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "requestor.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/name: kube-token-requestor
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

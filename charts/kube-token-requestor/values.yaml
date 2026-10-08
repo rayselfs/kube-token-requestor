@@ -1,0 +1,30 @@
+replicaCount: 0
+image:
+  repository: ghcr.io/rayselfs/kube-token-requestor
+  digest: ""
+imagePullSecrets: []
+registry:
+  schemaVersion: 1
+  managementUID: "00000000-0000-0000-0000-000000000000"
+  clusters: []
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+nodeSelector: {}
+tolerations: []
+networkPolicy:
+  enabled: true
+  # Supply explicit API/broker and DNS destinations before activating replicas.
+  egress: []
+  ingress: []
+monitoring:
+  serviceMonitor:
+    enabled: false
+    labels: {}
+  prometheusRule:
+    enabled: false
+    labels: {}

@@ -42,8 +42,10 @@ func TestExample(t *testing.T) {
 
 func TestInvalidRegistries(t *testing.T) {
 	cases := map[string]func(map[string]any){
-		"null cross-provider field":  func(v map[string]any) { provider(v, 0)["tokenEndpoint"] = nil },
-		"OAuth reuses issuer Secret": func(v map[string]any) { provider(v, 1)["clientSecret"] = provider(v, 0)["secret"] },
+		"output mount namespace mismatch": func(v map[string]any) { consumer(v, 0)["secret"].(map[string]any)["namespace"] = "other" },
+		"reserved OAuth volume":           func(v map[string]any) { provider(v, 1)["subjectTokenVolume"] = "management-api" },
+		"null cross-provider field":       func(v map[string]any) { provider(v, 0)["tokenEndpoint"] = nil },
+		"OAuth reuses issuer Secret":      func(v map[string]any) { provider(v, 1)["clientSecret"] = provider(v, 0)["secret"] },
 		"issuer reuses OAuth Secret": func(v map[string]any) {
 			provider(v, 0)["secret"] = provider(v, 1)["clientSecret"]
 			items := v["clusters"].([]any)

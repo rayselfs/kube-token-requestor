@@ -1,0 +1,139 @@
+{{- $name := include "requestor.name" . -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [{{ printf "%s-registry" $name | quote }}]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [{{ printf "%s-status" $name | quote }}]
+    verbs: [get, update]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    resourceNames: [{{ $name | quote }}]
+    verbs: [get, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+{{ include "requestor.binding" . }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ printf "%s-%s-identity" .Release.Namespace $name | quote }}
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    resourceNames: [kube-system]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "%s-%s-identity" .Release.Namespace $name | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ printf "%s-%s-identity" .Release.Namespace $name | quote }}
+{{ include "requestor.binding" . }}
+{{- $seenSources := dict }}
+{{- range $cluster := .Values.registry.clusters }}
+{{- $refs := list }}
+{{- if eq $cluster.provider.type "SecretIssuer" }}
+{{- $refs = append $refs $cluster.provider.secret }}
+{{- else if eq $cluster.provider.type "OAuthTokenExchange" }}
+{{- $refs = append $refs $cluster.provider.trustSecret }}
+{{- $refs = append $refs $cluster.provider.clientSecret }}
+{{- end }}
+{{- range $ref := $refs }}
+{{- $key := printf "%s/%s" $ref.namespace $ref.name }}
+{{- if not (hasKey $seenSources $key) }}
+{{- $_ := set $seenSources $key true }}
+{{- $role := printf "%s-%s-src" $name (printf "%s/%s" $ref.namespace $ref.name | sha256sum | trunc 8) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $role }}
+  namespace: {{ $ref.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [{{ $ref.name | quote }}]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $role }}
+  namespace: {{ $ref.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $role }}
+{{ include "requestor.binding" $ }}
+{{- end }}
+{{- end }}
+{{- range $consumer := $cluster.consumers }}
+{{- $role := printf "%s-%s-out" $name ($consumer.id | sha256sum | trunc 8) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $role }}
+  namespace: {{ $consumer.secret.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [{{ $consumer.secret.name | quote }}]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $role }}
+  namespace: {{ $consumer.secret.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $role }}
+{{ include "requestor.binding" $ }}
+{{- $role = printf "%s-%s-ca" $name ($consumer.id | sha256sum | trunc 8) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $role }}
+  namespace: {{ $consumer.caDeployment.namespace }}
+rules:
+  - apiGroups: [apps]
+    resources: [deployments, deployments/scale]
+    resourceNames: [{{ $consumer.caDeployment.name | quote }}]
+    verbs: [get]
+  - apiGroups: [apps]
+    resources: [deployments/scale]
+    resourceNames: [{{ $consumer.caDeployment.name | quote }}]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $role }}
+  namespace: {{ $consumer.caDeployment.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $role }}
+{{ include "requestor.binding" $ }}
+{{- end }}
+{{- end }}
