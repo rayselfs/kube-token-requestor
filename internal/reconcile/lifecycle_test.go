@@ -90,3 +90,25 @@ func TestStaleLeaderCannotOverwriteSafetyLatch(t *testing.T) {
 		t.Fatal("own subsequent update failed", err)
 	}
 }
+
+func TestStaleLeaderCannotPersistStopIntent(t *testing.T) {
+	client := fake.NewClientset()
+	e := &Engine{Management: client, Leader: func(context.Context) error { return provider.Conflict }}
+	if err := e.stop(context.Background(), config.Consumer{}, &status.Consumer{}, "SafetyStopped"); err != provider.Conflict {
+		t.Fatal("stale leader stop allowed")
+	}
+	if len(client.Actions()) != 0 {
+		t.Fatal("stop mutation preceded leadership guard")
+	}
+}
+
+func TestStaleGenerationCannotRestartCA(t *testing.T) {
+	client := fake.NewClientset()
+	e := &Engine{Management: client, Current: func(context.Context, string) error { return provider.Conflict }}
+	if err := e.resume(context.Background(), config.Consumer{}, &status.Consumer{}, "stale"); err != provider.Conflict {
+		t.Fatal("stale generation restart allowed")
+	}
+	if len(client.Actions()) != 0 {
+		t.Fatal("restart mutation preceded generation guard")
+	}
+}

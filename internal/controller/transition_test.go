@@ -20,6 +20,7 @@ func TestRegistryCannotRebindExistingIdentity(t *testing.T) {
 		name   string
 		mutate func(*config.Registry)
 	}{
+		{"active lifetime", func(r *config.Registry) { r.Clusters[0].Lifetime.RequestedSeconds-- }},
 		{"child UID", func(r *config.Registry) { r.Clusters[0].KubeSystemUID = r.Clusters[1].KubeSystemUID }},
 		{"child endpoint", func(r *config.Registry) { r.Clusters[0].Endpoint = r.Clusters[1].Endpoint }},
 		{"CA trust", func(r *config.Registry) { r.Clusters[0].CASHA256 = strings.Repeat("3", 64) }},
@@ -42,6 +43,11 @@ func TestRegistryCannotRebindExistingIdentity(t *testing.T) {
 			next, err := config.Parse(strings.NewReader(string(data)))
 			if err != nil {
 				t.Fatal(err)
+			}
+			if tc.name == "active lifetime" {
+				active := true
+				old.Clusters[0].Enabled = &active
+				next.Clusters[0].Enabled = &active
 			}
 			tc.mutate(next)
 			client := fake.NewClientset()

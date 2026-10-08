@@ -20,6 +20,8 @@ import (
 )
 
 type Engine struct {
+	Leader       func(context.Context) error
+	Current      func(context.Context, string) error
 	Management   kubernetes.Interface
 	Store        *status.Store
 	Providers    map[string]provider.IssuerProvider
@@ -94,6 +96,9 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 		return err
 	}
 	end := min(offset+4, len(c.Consumers))
+	if issuance && e.Current != nil && e.Current(ctx, generation) != nil {
+		issuance = false
+	}
 	// Enforce deadlines before potentially slow issuer/API acquisition.
 	for _, consumer := range c.Consumers[offset:end] {
 		output, readErr := publish.Read(ctx, e.Management, consumer)
@@ -330,6 +335,11 @@ func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config
 		}
 		return e.resume(ctx, consumer, &entry, generation)
 	}
+	if e.Current != nil {
+		if err := e.Current(ctx, generation); err != nil {
+			return err
+		}
+	}
 	candidate, err := issue.Request(ctx, issuer, c, consumer, identity.CA, e.Now())
 	if e.Event != nil {
 		outcome := "Healthy"
@@ -370,6 +380,11 @@ func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config
 	}
 	if ctx.Err() != nil {
 		return provider.Transport
+	}
+	if e.Current != nil {
+		if err := e.Current(ctx, generation); err != nil {
+			return err
+		}
 	}
 	if err := publish.Commit(ctx, e.Management, c, consumer, output, candidate, generation); err != nil {
 		if err == provider.Conflict && e.Event != nil {

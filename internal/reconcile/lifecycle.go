@@ -97,6 +97,11 @@ func stopped(ctx context.Context, client kubernetes.Interface, consumer config.C
 }
 
 func (e *Engine) stop(ctx context.Context, consumer config.Consumer, entry *status.Consumer, condition string) error {
+	if e.Leader != nil {
+		if err := e.Leader(ctx); err != nil {
+			return err
+		}
+	}
 	// Intent survives crashes and latches before the stop request can be sent.
 	entry.StopLatched, entry.Condition, entry.Intent = true, condition, nil
 	if err := e.save(ctx, consumer.ID, entry); err != nil {
@@ -121,6 +126,11 @@ func (e *Engine) stop(ctx context.Context, consumer config.Consumer, entry *stat
 }
 
 func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *status.Consumer, generation string) error {
+	if e.Current != nil {
+		if err := e.Current(ctx, generation); err != nil {
+			return err
+		}
+	}
 	intent := entry.Intent
 	if intent == nil || intent.Generation != generation || intent.DeploymentUID != consumer.CADeployment.UID || intent.Replicas != 1 ||
 		entry.StopLatched || intent.Phase != "Published" || !intent.CandidateExpiry.After(e.Now().Add(5*time.Minute)) {
@@ -136,6 +146,11 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 	entry.Intent.Phase = "Starting"
 	if err := e.save(ctx, consumer.ID, entry); err != nil {
 		return err
+	}
+	if e.Current != nil {
+		if err := e.Current(ctx, generation); err != nil {
+			return err
+		}
 	}
 	if *d.Spec.Replicas == 0 {
 		if err := scale(ctx, e.Management, consumer, 0, 1); err != nil {
