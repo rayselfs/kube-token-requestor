@@ -33,3 +33,14 @@ Stable gates still include real OAuth API/trust rotation, complete consumer/chil
 failure and revocation drills, capacity acceptance, natural-lifetime observation, monitoring
 receiver, sole-writer adoption and paired public release verification. No stable acceptance report
 is fabricated from these partial development results.
+
+## Released RC2 native API acceptance
+
+Both native architectures passed the owner-dispatched [local API acceptance run](https://github.com/rayselfs/kube-token-requestor/actions/runs/37844705633).
+Released source is `36a37434498a6f084f4c862509e1971ef6668a7e`; harness source is
+`4b79bb12cfd6c29fc75fad57e80d63b2d6f723d4`. The signed public RC2 image/chart were verified and
+pulled on fresh amd64/arm64 runners. Each run used two real child APIs, three distinct restricted
+consumer tokens, upstream CA 1.35.2/Kubernetes 1.35.8, and the 13-minute accelerated TokenFile
+observation plus issuer/consumer isolation drills. This is not OAuth, StopStart, provisioning,
+natural-lifetime or stable support acceptance. Later permission/lifecycle hardening requires a
+new release and new evidence rather than attributing it to RC2.

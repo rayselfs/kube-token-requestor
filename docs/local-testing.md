@@ -30,6 +30,14 @@ from registry outputs and pass it explicitly; synthetic stopped-image hashes are
   and prove the sibling rotates without overwriting the foreign-owned output. Annotation changes
   use UID/resourceVersion/value CAS and cleanup reports failure. No credential data is changed.
 
+- `stop-start`: require a stopped, unlatched second consumer with no outstanding restart intent;
+  stop and drain the local requestor for a guarded reload-policy handoff, then observe three
+  distinct Ready CA Pod identities (initial plus two replacements). Manually suspend that CA
+  and prove it remains stopped through another renewal. Cleanup drains it and the requestor,
+  restores the original registry bytes and TokenFile policy, and returns requestor replicas to
+  two. A failed run may leave a latched safety stop requiring reviewed recovery; do not erase
+  runtime state or automatically acknowledge it to force a rerun.
+
 Arguments are `--kubeconfigs` (protected directory containing `management`, `child-a`, `child-b`),
 `--values` (non-secret generated values), `--ca-digest` and `--duration` for observation. Observation
 requires at least thirteen minutes and emits no credential payloads. It is accelerated reload
