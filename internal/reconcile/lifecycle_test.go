@@ -13,6 +13,7 @@ import (
 	"github.com/rayselfs/kube-token-requestor/internal/status"
 	"github.com/rayselfs/kube-token-requestor/internal/testutil"
 	apps "k8s.io/api/apps/v1"
+	autoscaling "k8s.io/api/autoscaling/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -147,5 +148,41 @@ func TestReconfiguredRestartIntentLatchesStopped(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestManualScaleConflictCancelsRestartAuthority(t *testing.T) {
+	replicas := int32(0)
+	digest := "sha256:" + strings.Repeat("1", 64)
+	consumer := config.Consumer{ID: "ca", CADeployment: config.Deployment{Namespace: "ns", Name: "ca", UID: "deployment-uid", ImageDigest: digest}}
+	client := fake.NewClientset(&core.ConfigMap{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "status", UID: "status-uid"}}, &apps.Deployment{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "ca", UID: "deployment-uid", Annotations: map[string]string{Acknowledge: "previous-ack"}}, Spec: apps.DeploymentSpec{Replicas: &replicas, Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{{Image: "test@" + digest}}}}}})
+	client.PrependReactor("get", "deployments", func(action kt.Action) (bool, runtime.Object, error) {
+		if action.GetSubresource() != "scale" {
+			return false, nil, nil
+		}
+		return true, &autoscaling.Scale{ObjectMeta: meta.ObjectMeta{UID: "deployment-uid"}, Spec: autoscaling.ScaleSpec{Replicas: 0}}, nil
+	})
+	store := &status.Store{Client: client, Namespace: "ns", Name: "status", UID: "status-uid"}
+	engine := &Engine{Management: client, Store: store}
+	entry := status.Consumer{Intent: &status.Intent{Generation: "current", DeploymentUID: "deployment-uid", Replicas: 1, Phase: "Stopping"}}
+	if err := engine.save(context.Background(), consumer.ID, &entry); err != nil {
+		t.Fatal(err)
+	}
+	// The earlier observation saw one replica; the fresh Scale sees the operator's zero.
+	if err := engine.stopRenewal(context.Background(), consumer, &entry, 1); err != provider.Conflict {
+		t.Fatal("competing scale was not reported", err)
+	}
+	state, err := store.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopped := state.Consumers[consumer.ID]
+	if !stopped.StopLatched || stopped.Intent != nil || stopped.Acknowledgement != "previous-ack" {
+		t.Fatal("manual suspension retained automatic restart authority")
+	}
+	for _, action := range client.Actions() {
+		if action.GetVerb() == "patch" {
+			t.Fatal("already stopped deployment was modified")
+		}
 	}
 }

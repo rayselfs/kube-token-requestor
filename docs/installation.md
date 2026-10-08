@@ -75,7 +75,10 @@ cluster UID; activating those defaults must fail.
 
 After approved candidate issuance and sole-writer handoff, activate `replicaCount: 2` with the
 released image digest and separately enable exact targets. Ensure CA desired counts remain under
-operator control. This controller never starts a CA that was already stopped before renewal.
+operator control. This controller never starts a CA that was already stopped before renewal. For an operator
+suspension, disable the consumer and confirm its accepted generation before scaling the CA to
+zero; a scale-to-zero alone during an owned restart is ambiguous after transport/crash recovery.
+A known competing Scale CAS conflict cancels restart authority with a latched safety stop.
 
 ## Monitoring
 
