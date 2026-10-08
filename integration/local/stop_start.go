@@ -247,7 +247,7 @@ func stopStart(root, path string) (result error) {
 	phase = "activation"
 	// Publication must be fresh under the accepted policy before starting this fixture.
 	ready := false
-	for range 40 {
+	for attempt := range 40 {
 		output, err := publish.Read(ctx, management, consumer)
 		if err != nil {
 			return err
@@ -255,6 +255,9 @@ func stopStart(root, path string) (result error) {
 		if output.Annotations[publish.Generation] == expectedGeneration && publish.StoredExpiry(output, values.Registry.Clusters[0], consumer).After(time.Now().Add(8*time.Minute)) {
 			ready = true
 			break
+		}
+		if attempt%10 == 0 {
+			fmt.Printf("local StopStart publication: generationMatched=%t remainingSeconds=%d\n", output.Annotations[publish.Generation] == expectedGeneration, int64(time.Until(publish.StoredExpiry(output, values.Registry.Clusters[0], consumer)).Seconds()))
 		}
 		if err := waitLocal(ctx, 2*time.Second); err != nil {
 			return err
