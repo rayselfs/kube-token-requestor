@@ -20,6 +20,10 @@ import (
 
 // observe keeps credentials in memory and emits only synthetic acceptance summaries.
 func observe(root, path string, duration time.Duration) error {
+	return observeProgress(root, path, duration, nil)
+}
+
+func observeProgress(root, path string, duration time.Duration, progress func(int, bool, string) error) error {
 	if duration < 13*time.Minute || duration > 49*time.Hour {
 		return provider.Trust
 	}
@@ -118,6 +122,11 @@ func observe(root, path string, duration time.Duration) error {
 		}
 		if strings.Contains(string(logs), "Unauthorized") || strings.Contains(string(logs), "forbidden") {
 			return provider.Trust
+		}
+		if progress != nil {
+			if err := progress(rotations, oldRejected, podUID); err != nil {
+				return err
+			}
 		}
 		fmt.Printf("local rotation observation: rotations=%d samePod=true restrictedAPI=true oldTokenRejected=%t\n", rotations, oldRejected)
 		select {

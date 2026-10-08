@@ -38,6 +38,8 @@ func run() error {
 	out := flag.String("values", "", "non-secret generated Helm values path")
 	action := flag.String("action", "bootstrap", "bootstrap or assert")
 	duration := flag.Duration("duration", 13*time.Minute, "local rotation observation duration")
+	manifest := flag.String("manifest", "", "verified public release manifest for natural observation")
+	evidence := flag.String("evidence", "", "checkpoint path outside source checkout")
 	digest := flag.String("ca-digest", "sha256:"+strings.Repeat("1", 64), "synthetic stopped CA image digest")
 	flag.Parse()
 	if *root == "" || *out == "" {
@@ -45,6 +47,9 @@ func run() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
+	if *action == "observe-natural" {
+		return observeNatural(*root, *out, *manifest, *evidence, *duration)
+	}
 	if *action == "observe" {
 		return observe(*root, *out, *duration)
 	}
