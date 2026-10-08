@@ -4,6 +4,9 @@ This is a management-cluster service. It does not install child identities, disc
 change node pools or grant child RBAC. Installation and activation are separate operations.
 No published release or production acceptance is implied by the source chart.
 
+Review the separate [child bootstrap example](../bootstrap/README.md) for exact issuer/consumer
+rights and secure credential preparation. It is not applied by Helm or the controller.
+
 ## Before installation
 
 Use an accepted release-manifest matrix row. Verify the paired image/chart signatures and
