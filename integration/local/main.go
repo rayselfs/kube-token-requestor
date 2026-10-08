@@ -48,6 +48,9 @@ func run() error {
 	if *action == "observe" {
 		return observe(*root, *out, *duration)
 	}
+	if *action == "faults" {
+		return faults(*root, *out)
+	}
 	if *action == "configure-ca" {
 		return configureCA(*root, *out, *digest)
 	}
