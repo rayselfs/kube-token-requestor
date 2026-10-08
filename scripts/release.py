@@ -4,6 +4,8 @@ import argparse
 import hashlib
 import json
 import re
+import math
+from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -28,9 +30,13 @@ def gate(version, commit, evidence=None):
       'Acceptance report has unknown or missing fields')
   require(evidence.get('sourceCommit') == commit and evidence.get('version') == version,
       'Acceptance must bind this exact source and version')
-  require(evidence.get('observationHours', 0) >= 48 and evidence.get('naturalRotations', 0) >= 2,
+  require(type(evidence.get('observationHours')) in (int, float) and
+      math.isfinite(evidence['observationHours']) and evidence['observationHours'] >= 48 and
+      type(evidence.get('naturalRotations')) is int and evidence['naturalRotations'] >= 2,
       'Stable publication requires natural-lifetime observation')
-  require(evidence.get('ownerApproval') and evidence.get('alertDeliveryAccepted') is True,
+  require(isinstance(evidence.get('ownerApproval'), str) and
+      re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9-]{0,38}', evidence['ownerApproval']) and
+      evidence.get('alertDeliveryAccepted') is True,
       'Stable publication requires owner approval and alert delivery')
   require(evidence.get('acceptedMatrix'), 'Stable publication requires an accepted matrix')
   for row in evidence['acceptedMatrix']:
@@ -41,7 +47,13 @@ def gate(version, commit, evidence=None):
         row['reloadPolicy'] in ('TokenFile', 'StopStart'), 'Unknown accepted profile')
     require(DIGEST.fullmatch(row['caImageDigest']) and row['caImageDigest'] != 'sha256:' + '0'*64,
         'CA digest is required')
-    require(set(row['architectures']) == {'linux/amd64', 'linux/arm64'}, 'Both architectures need acceptance')
+    require(len(row['architectures']) == 2 and
+        set(row['architectures']) == {'linux/amd64', 'linux/arm64'}, 'Both architectures need acceptance')
+    for field in ('managementKubernetes', 'childKubernetes', 'clusterAutoscaler'):
+      require(re.fullmatch(r'1\.(34|35|36)\.(0|[1-9]\d*)', row[field]), 'Unsupported version profile')
+    require(row['childKubernetes'].split('.')[1] == row['clusterAutoscaler'].split('.')[1],
+        'CA/child minor mismatch requires a separate reviewed compatibility contract')
+    date.fromisoformat(row['testedAt'])
     evidence_uri(row['evidenceURI'])
   rows = evidence.get('scenarios', {})
   require(set(rows) == {f'A{i:02d}' for i in range(1, 25)}, 'Acceptance scenario set is incomplete')
