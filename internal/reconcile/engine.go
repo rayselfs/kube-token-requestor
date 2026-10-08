@@ -287,6 +287,12 @@ func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config
 	if *d.Spec.Replicas == 1 && !mounted(d, consumer) {
 		return provider.Trust
 	}
+	// A persisted restart belongs to one policy/generation and deployment only.
+	// Reconfiguration cancels it through a durable stop, never through an implicit resume.
+	if entry.Intent != nil && (consumer.ReloadPolicy != "StopStart" || entry.Intent.Generation != generation || entry.Intent.DeploymentUID != consumer.CADeployment.UID) {
+		entry.Acknowledgement = d.Annotations[Acknowledge]
+		return e.stop(ctx, consumer, &entry, "SafetyStopped")
+	}
 	if entry.StopLatched {
 		ack := d.Annotations[Acknowledge]
 		if ack != "" && !acknowledgement.MatchString(ack) {

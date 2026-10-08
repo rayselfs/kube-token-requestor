@@ -1,6 +1,7 @@
 # Monitoring and operations contract
 
-Status: required behavior; no metrics endpoint, dashboard or alert rules implemented yet.
+Status: metrics, health endpoints and optional chart alert rules are implemented. Operator
+receiver/on-call acceptance and stable-release evidence remain required.
 
 ## Metrics
 

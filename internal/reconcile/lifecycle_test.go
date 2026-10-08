@@ -112,3 +112,40 @@ func TestStaleGenerationCannotRestartCA(t *testing.T) {
 		t.Fatal("restart mutation preceded generation guard")
 	}
 }
+
+func TestReconfiguredRestartIntentLatchesStopped(t *testing.T) {
+	for _, policy := range []string{"TokenFile", "StopStart"} {
+		t.Run(policy, func(t *testing.T) {
+			now := time.Unix(2000000000, 0)
+			replicas := int32(0)
+			digest := "sha256:" + strings.Repeat("1", 64)
+			ca := []byte("public-test-ca")
+			consumer := config.Consumer{ID: "consumer", ServiceAccount: config.ServiceAccount{Name: "ca", UID: "sa-uid"}, Secret: config.Ref{Namespace: "ns", Name: "output", UID: "output-uid"}, CADeployment: config.Deployment{Namespace: "ns", Name: "ca", UID: "deployment-uid", ImageDigest: digest}, ReloadPolicy: policy}
+			cluster := config.Cluster{IdentityNamespace: "identity", CASHA256: credential.Hash(ca), Audiences: []string{"api"}, Lifetime: config.Lifetime{RenewBeforeSeconds: 300, StopBeforeSeconds: 60, ClockSkewSeconds: 5}}
+			client := fake.NewClientset(&core.ConfigMap{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "status", UID: "status-uid"}}, &core.Secret{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "output", UID: "output-uid", Annotations: map[string]string{publish.Owner: "consumer"}}, Type: core.SecretTypeOpaque, Data: map[string][]byte{"ca.crt": ca, "token": []byte(testutil.Token("system:serviceaccount:identity:ca", "identity", "ca", "sa-uid", []string{"api"}, now, 3600))}}, &apps.Deployment{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "ca", UID: "deployment-uid", Annotations: map[string]string{Acknowledge: "existing-operator-ack"}}, Spec: apps.DeploymentSpec{Replicas: &replicas, Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{{Image: "test@" + digest}}}}}})
+			store := &status.Store{Client: client, Namespace: "ns", Name: "status", UID: "status-uid"}
+			engine := &Engine{Management: client, Store: store, Now: func() time.Time { return now }}
+			intentGeneration := "old-generation"
+			if policy == "TokenFile" {
+				intentGeneration = "current-generation"
+			}
+			entry := status.Consumer{Intent: &status.Intent{Generation: intentGeneration, DeploymentUID: "deployment-uid", Replicas: 1, Phase: "Published", CandidateExpiry: now.Add(time.Hour)}}
+			if err := engine.consumer(context.Background(), cluster, consumer, "current-generation", entry, nil, provider.IssuerCredential{}, nil, true); err != nil {
+				t.Fatal(err)
+			}
+			state, err := store.Read(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			recovered := state.Consumers[consumer.ID]
+			if !recovered.StopLatched || recovered.Intent != nil || recovered.Acknowledgement != "existing-operator-ack" {
+				t.Fatal("stale restart did not require a fresh acknowledgement")
+			}
+			for _, action := range client.Actions() {
+				if action.GetVerb() == "patch" {
+					t.Fatal("already stopped CA was mutated")
+				}
+			}
+		})
+	}
+}

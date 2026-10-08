@@ -50,8 +50,13 @@ For SecretIssuer, source keys are `ca.crt` and `token`; a long-lived source also
 `token-requestor.io/consumer` equal to the registered consumer ID. OAuth trust keys are `ca.crt`
 (broker) and `api-ca.crt` (child); the client Secret key is `client-secret`. All references pin UID.
 
-Lifetime/audience/provider changes require both old/new targets disabled and the affected CAs
-drained. Runtime checks the live registry/status generation and Lease holder before issuance,
+Lifetime/audience/provider/reload-policy changes require both old/new targets disabled and the
+affected CAs drained. Stop the requestor and wait for all its Pods to disappear before changing
+these fields; the shared status generation does not prove that every HA replica accepted an
+intermediate disabled configuration. Restart the requestor with disabled targets, validate the
+new policy, then separately enable exact targets. A persisted restart intent from another
+generation or policy is cancelled with a latched safety stop; validate the replacement and issue
+a fresh acknowledgement before an explicit operator start. Runtime checks the live registry/status generation and Lease holder before issuance,
 publication and resume; output/status CAS remains necessary because cross-object fencing is not
 atomic. Safety guards still operate when a new registry is invalid.
 
