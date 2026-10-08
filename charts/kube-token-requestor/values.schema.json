@@ -1,0 +1,577 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "replicaCount": {
+      "enum": [
+        0,
+        2
+      ]
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^(|sha256:[0-9a-f]{64})$"
+        }
+      },
+      "required": [
+        "repository",
+        "digest"
+      ]
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "managementUID": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "clusters": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "endpoint": {
+                "type": "string",
+                "pattern": "^https://"
+              },
+              "kubeSystemUID": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "caSHA256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "identityNamespace": {
+                "type": "string",
+                "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+              },
+              "audiences": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048
+                }
+              },
+              "expectedIssuer": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "groups": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2048
+                    }
+                  }
+                },
+                "required": [
+                  "username",
+                  "groups"
+                ]
+              },
+              "provider": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "const": "SecretIssuer"
+                      },
+                      "serviceAccount": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                          },
+                          "uid": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "uid"
+                        ]
+                      },
+                      "secret": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "namespace": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                          },
+                          "uid": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                          }
+                        },
+                        "required": [
+                          "namespace",
+                          "name",
+                          "uid"
+                        ]
+                      },
+                      "longLived": {
+                        "type": "boolean"
+                      },
+                      "rotationPeriodSeconds": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "serviceAccount",
+                      "secret",
+                      "longLived"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "const": "OAuthTokenExchange"
+                      },
+                      "tokenEndpoint": {
+                        "type": "string",
+                        "pattern": "^https://"
+                      },
+                      "trustSecret": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "namespace": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                          },
+                          "uid": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                          }
+                        },
+                        "required": [
+                          "namespace",
+                          "name",
+                          "uid"
+                        ]
+                      },
+                      "clientID": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "clientSecret": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "namespace": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 253,
+                            "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                          },
+                          "uid": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                          }
+                        },
+                        "required": [
+                          "namespace",
+                          "name",
+                          "uid"
+                        ]
+                      },
+                      "subjectTokenVolume": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                      },
+                      "subjectTokenAudience": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "audience": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "scopes": {
+                        "type": "array",
+                        "minItems": 1,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        }
+                      },
+                      "acceptedMinSeconds": {
+                        "type": "integer",
+                        "minimum": 600
+                      },
+                      "acceptedMaxSeconds": {
+                        "type": "integer",
+                        "maximum": 86400
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "tokenEndpoint",
+                      "trustSecret",
+                      "clientID",
+                      "clientSecret",
+                      "subjectTokenVolume",
+                      "subjectTokenAudience",
+                      "audience",
+                      "scopes",
+                      "acceptedMinSeconds",
+                      "acceptedMaxSeconds"
+                    ]
+                  }
+                ]
+              },
+              "lifetime": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "requestedSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 604800
+                  },
+                  "acceptedMinSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 604800
+                  },
+                  "acceptedMaxSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 604800
+                  },
+                  "renewBeforeSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 604800
+                  },
+                  "stopBeforeSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 604800
+                  },
+                  "clockSkewSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 604800
+                  }
+                },
+                "required": [
+                  "requestedSeconds",
+                  "acceptedMinSeconds",
+                  "acceptedMaxSeconds",
+                  "renewBeforeSeconds",
+                  "stopBeforeSeconds",
+                  "clockSkewSeconds"
+                ]
+              },
+              "consumers": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "serviceAccount": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 253,
+                          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                        },
+                        "uid": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "uid"
+                      ]
+                    },
+                    "secret": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "namespace": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 253,
+                          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                        },
+                        "uid": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        }
+                      },
+                      "required": [
+                        "namespace",
+                        "name",
+                        "uid"
+                      ]
+                    },
+                    "caDeployment": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "namespace": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 253,
+                          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                        },
+                        "uid": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "imageDigest": {
+                          "type": "string",
+                          "pattern": "^sha256:[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "namespace",
+                        "name",
+                        "uid",
+                        "imageDigest"
+                      ]
+                    },
+                    "reloadPolicy": {
+                      "enum": [
+                        "TokenFile",
+                        "StopStart"
+                      ]
+                    },
+                    "permissionProfile": {
+                      "const": "ca-read-events"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "enabled",
+                    "serviceAccount",
+                    "secret",
+                    "caDeployment",
+                    "reloadPolicy",
+                    "permissionProfile"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "enabled",
+              "endpoint",
+              "kubeSystemUID",
+              "caSHA256",
+              "identityNamespace",
+              "audiences",
+              "expectedIssuer",
+              "provider",
+              "lifetime",
+              "consumers"
+            ]
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "managementUID",
+        "clusters"
+      ]
+    },
+    "resources": {
+      "type": "object"
+    },
+    "nodeSelector": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "tolerations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "ingress": {
+          "type": "array"
+        },
+        "egress": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "ingress",
+        "egress"
+      ]
+    },
+    "monitoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "serviceMonitor": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "enabled",
+            "labels"
+          ]
+        },
+        "prometheusRule": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "enabled",
+            "labels"
+          ]
+        }
+      },
+      "required": [
+        "serviceMonitor",
+        "prometheusRule"
+      ]
+    }
+  },
+  "required": [
+    "replicaCount",
+    "image",
+    "imagePullSecrets",
+    "registry",
+    "resources",
+    "nodeSelector",
+    "tolerations",
+    "networkPolicy",
+    "monitoring"
+  ],
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

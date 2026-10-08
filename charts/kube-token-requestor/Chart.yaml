@@ -1,0 +1,9 @@
+apiVersion: v2
+name: kube-token-requestor
+description: Restricted multi-cluster ServiceAccount credential controller
+type: application
+version: 0.1.0-rc.1
+appVersion: 0.1.0-rc.1
+home: https://github.com/rayselfs/kube-token-requestor
+sources:
+  - https://github.com/rayselfs/kube-token-requestor

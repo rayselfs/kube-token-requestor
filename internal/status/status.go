@@ -21,6 +21,7 @@ type Intent struct {
 	Phase           string    `json:"phase"`
 }
 type Consumer struct {
+	Revision        uint64    `json:"revision"`
 	Condition       string    `json:"condition"`
 	Expiry          time.Time `json:"expiry,omitempty"`
 	LastSuccess     time.Time `json:"lastSuccess,omitempty"`

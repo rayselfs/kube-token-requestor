@@ -22,7 +22,7 @@ func TestCLI(t *testing.T) {
 		{"invalid", []string{"validate-config"}, `{"token":"sensitive-canary"}`, 1},
 		{"version", []string{"version"}, "", 0},
 		{"no command", nil, "", 2},
-		{"runtime not implemented", []string{"run"}, "", 2},
+		{"runtime uses separate command dispatch", []string{"run"}, "", 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var out, stderr bytes.Buffer

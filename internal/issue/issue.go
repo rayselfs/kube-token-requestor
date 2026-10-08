@@ -31,7 +31,7 @@ func Client(endpoint string, identity provider.IssuerCredential) (kubernetes.Int
 	if err != nil {
 		return nil, err
 	}
-	config := &rest.Config{Host: endpoint, BearerToken: identity.Bearer, TLSClientConfig: rest.TLSClientConfig{CAData: identity.CA}, Timeout: 10 * time.Second, QPS: 2, Burst: 4, UserAgent: "kube-token-requestor"}
+	config := &rest.Config{Host: endpoint, BearerToken: identity.Bearer, TLSClientConfig: rest.TLSClientConfig{CAData: identity.CA}, Timeout: 10 * time.Second, QPS: 2, Burst: 4, UserAgent: "kube-token-requestor", WarningHandler: rest.NoWarnings{}}
 	// HTTP owns trust and redirect policy; rest owns bearer transport wrapping.
 	transport, err := rest.HTTPWrappersForConfig(config, httpClient.Transport)
 	if err != nil {

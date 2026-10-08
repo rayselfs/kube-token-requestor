@@ -3,8 +3,8 @@
 A shared Kubernetes credential controller designed to issue and distribute short-lived
 ServiceAccount tokens to multiple Cluster Autoscalers across multiple workload clusters.
 
-**Status: configuration CLI and issuer/issuance core implemented; controller runtime pending.** No Helm chart,
-container image, release, or production compatibility has been published yet.
+**Status: controller runtime and source Helm chart implemented; release/production acceptance pending.**
+No container image, OCI chart release or production compatibility has been published yet.
 
 One Deployment serves all enrolled clusters and consumers. Two replicas provide leader-elected
 HA. Enrollment is explicit; the service does not discover clusters or adopt admin kubeconfigs.
@@ -16,6 +16,7 @@ HA. Enrollment is explicit; the service does not discover clusters or adopt admi
 - [Monitoring and operations](docs/operations.md)
 - [GitHub image/chart releases and compatibility matrix](docs/releases.md)
 - [Disabled, synthetic multi-cluster example](examples/registry.json)
+- [Installation and upgrade](docs/installation.md)
 - [Security policy](SECURITY.md)
 
 Authentication is selected per workload cluster:
@@ -43,8 +44,9 @@ The project is environment-neutral. No company endpoints, cluster UIDs, credenti
 infrastructure inventory belong here. Installation-specific values and approvals live in the
 operator's configuration repository. No commercial access platform is required.
 
-This repository currently has no deployable controller/chart or automatic release workflow.
-Their behavior and implementation gates are specified before credentials are managed.
+The source chart defaults to zero controller replicas and an empty registry. It requires explicit
+identity pins, credentials prepared through an approved channel and a released image digest before
+activation. Runtime tests do not authorize adoption into an external cluster.
 
 ## Check the specification package
 
