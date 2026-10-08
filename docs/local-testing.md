@@ -51,3 +51,23 @@ This test proves authentication/reload behavior, not node provisioning or autosc
 Run chart rendering, alert syntax/firing fixtures and race checks with Helm/promtool on PATH.
 Local Helm upgrade/uninstall acceptance additionally checks retained runtime ConfigMap/Lease
 UIDs and state; rendering tests alone cannot prove Kubernetes/Helm lifecycle behavior.
+
+## Natural-policy observation
+
+`observe-natural` is a separate fail-closed 48–49 hour harness. Prepare a reviewed local-only
+registry with 24-hour requested tokens, accepted TTL 22–25 hours, renewal 1–12 hours before
+expiry, stop at least 30 minutes before expiry and clock tolerance at most one minute. Drain the
+requestor for that material handoff and validate newly published 24-hour tokens before starting.
+Use a fixed published image/chart throughout. Verify release checksums and Sigstore signatures
+before passing `--manifest`; the harness does not substitute for signature verification.
+
+Pass `--duration 48h --manifest <verified-release-manifest> --evidence <task-directory>/natural-evidence.json`.
+The evidence file must be in the parent of the protected task kubeconfig directory. It records
+only public artifact identity, timestamps, rotation counts and the synthetic CA Pod UID, using
+an atomic checkpoint. A sleep/observation gap over 90 seconds, image/registry change, missing
+controller replica, CA restart, API/rights failure or missing old-token rejection fails the run.
+Interrupted runs are not resumed or combined; start a fresh observation. Keep the host awake and
+Docker/three local clusters available. Running checkpoints are not passed acceptance reports.
+
+This result alone is not a stable promotion report: capacity, OAuth, fault/alert and operator
+adoption gates remain separate. Do not publish local kubeconfigs or credential payloads.
