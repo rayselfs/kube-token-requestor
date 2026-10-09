@@ -106,7 +106,12 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 		issuance = false
 	}
 	// Enforce deadlines before potentially slow issuer/API acquisition.
+	preflightFailures := map[string]error{}
+	preflightNotified := map[string]bool{}
 	for _, consumer := range c.Consumers[offset:end] {
+		if ctx.Err() != nil {
+			return provider.Transport
+		}
 		output, readErr := publish.Read(ctx, e.Management, consumer)
 		entry := snapshot.Consumers[consumer.ID]
 		expires := entry.Expiry
@@ -118,7 +123,8 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 		}
 		d, depErr := deployment(ctx, e.Management, consumer)
 		if depErr != nil {
-			return depErr
+			preflightFailures[consumer.ID] = depErr
+			continue
 		}
 		if *d.Spec.Replicas == 1 {
 			entry.Expiry = expires
@@ -126,13 +132,18 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 				entry.Condition = "StopUnconfirmed"
 				entry.StopLatched = true
 				_ = e.save(ctx, consumer.ID, &entry)
+				// Report an unconfirmed stop immediately, even if later acquisition
+				// exhausts the slice deadline. Do not count it twice below.
 				if e.State != nil {
 					e.State(c.ID, consumer.ID, entry)
 				}
 				if e.Observe != nil {
 					e.Observe(c.ID, consumer.ID, entry.Condition, expires)
 				}
-				return err
+				preflightNotified[consumer.ID] = true
+				snapshot.Consumers[consumer.ID] = entry
+				preflightFailures[consumer.ID] = err
+				continue
 			}
 			entry.StopLatched, entry.Intent = true, nil
 			snapshot.Consumers[consumer.ID] = entry
@@ -220,10 +231,15 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 		e.mu.Lock()
 		deferred := e.retries[consumer.ID].next.After(e.Now())
 		e.mu.Unlock()
-		if deferred && !entry.StopLatched && entry.Expiry.After(e.Now().Add(time.Duration(c.Lifetime.StopBeforeSeconds+c.Lifetime.ClockSkewSeconds)*time.Second)) {
+		if preflightFailures[consumer.ID] == nil && deferred && !entry.StopLatched && entry.Expiry.After(e.Now().Add(time.Duration(c.Lifetime.StopBeforeSeconds+c.Lifetime.ClockSkewSeconds)*time.Second)) {
 			continue
 		}
-		err := e.consumer(ctx, c, consumer, generation, entry, issuer, identity, acquisition, issuance && *c.Enabled && *consumer.Enabled)
+		// A failed emergency preflight must not attempt publication/restart, but
+		// neither may it prevent other consumers from being reconciled.
+		err := preflightFailures[consumer.ID]
+		if err == nil {
+			err = e.consumer(ctx, c, consumer, generation, entry, issuer, identity, acquisition, issuance && *c.Enabled && *consumer.Enabled)
+		}
 		e.mu.Lock()
 		if e.retries == nil {
 			e.retries = map[string]retry{}
@@ -245,7 +261,7 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 		if err != nil {
 			last = provider.Classify(err)
 		}
-		if e.Observe != nil {
+		if e.Observe != nil && !preflightNotified[consumer.ID] {
 			result := "Healthy"
 			if err != nil {
 				result = provider.Classify(err).Error()
