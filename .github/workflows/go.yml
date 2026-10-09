@@ -24,11 +24,11 @@ jobs:
       - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
         with:
           version: v4.1.3
-      - name: Install pinned promtool
+      - name: Install pinned Prometheus and promtool
         run: |
           curl -fsSL https://github.com/prometheus/prometheus/releases/download/v3.15.0/prometheus-3.15.0.linux-amd64.tar.gz -o "$RUNNER_TEMP/prometheus.tar.gz"
           echo '2a542df32eac02ee17b9d844fb2aa1de00dafa5476579ba8a3ba862e9d572ea0 '"$RUNNER_TEMP/prometheus.tar.gz" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/prometheus.tar.gz" -C "$RUNNER_TEMP" prometheus-3.15.0.linux-amd64/promtool
+          tar -xzf "$RUNNER_TEMP/prometheus.tar.gz" -C "$RUNNER_TEMP" prometheus-3.15.0.linux-amd64/promtool prometheus-3.15.0.linux-amd64/prometheus
           echo "$RUNNER_TEMP/prometheus-3.15.0.linux-amd64" >> "$GITHUB_PATH"
       - name: Install pinned Alertmanager for isolated receiver tests
         run: |
