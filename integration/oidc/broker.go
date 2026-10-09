@@ -5,12 +5,14 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,6 +42,99 @@ type Broker struct {
 	subjectLive       bool
 	discoveryRequests atomic.Uint64
 	jwksRequests      atomic.Uint64
+	projected         map[string]projectionSample
+	rejectNext        bool
+	rejectedHash      [32]byte
+	rejectedCalls     uint64
+}
+
+type projectionSample struct {
+	hash                      [32]byte
+	Count                     int
+	FirstExpiry, LatestExpiry int64
+}
+
+// BindProjectedSubject enrolls the Helm-created account in this synthetic fixture only.
+func (b *Broker) BindProjectedSubject(username, uid string) error {
+	if username == "" || uid == "" {
+		return rejected
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.settings.SubjectUsername, b.settings.SubjectUID = username, uid
+	b.projected = map[string]projectionSample{}
+	b.rejectNext, b.rejectedHash, b.rejectedCalls = false, [32]byte{}, 0
+	return nil
+}
+
+func (b *Broker) projectedSample(uid string) projectionSample {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.projected[uid]
+}
+
+func (b *Broker) recordProjection(token string) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return
+	}
+	var claims struct {
+		Expires    int64 `json:"exp"`
+		Kubernetes struct {
+			Pod struct {
+				UID string `json:"uid"`
+			} `json:"pod"`
+		} `json:"kubernetes.io"`
+	}
+	if json.Unmarshal(payload, &claims) != nil || claims.Kubernetes.Pod.UID == "" {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.projected == nil {
+		return
+	}
+	sample := b.projected[claims.Kubernetes.Pod.UID]
+	hash := sha256.Sum256([]byte(token))
+	if sample.Count == 0 {
+		sample.FirstExpiry = claims.Expires
+	}
+	if hash != sample.hash {
+		sample.Count++
+		sample.hash, sample.LatestExpiry = hash, claims.Expires
+	}
+	b.projected[claims.Kubernetes.Pod.UID] = sample
+}
+
+// rejectProjectedOnce holds one reviewed subject hash until kubelet replaces it.
+// Neither the token nor its private fingerprint leaves this in-memory fixture.
+func (b *Broker) rejectProjectedOnce() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.rejectNext = true
+}
+func (b *Broker) rejectReviewedSubject(token string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	hash := sha256.Sum256([]byte(token))
+	if b.rejectNext {
+		b.rejectedHash = hash
+		b.rejectNext = false
+	}
+	if b.rejectedHash == hash {
+		b.rejectedCalls++
+		return true
+	}
+	return false
+}
+func (b *Broker) rejectionCount() uint64 {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.rejectedCalls
 }
 
 func New(settings Settings) (*Broker, error) {
@@ -163,6 +258,11 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	review, err := settings.Management.AuthenticationV1().TokenReviews().Create(r.Context(), &auth.TokenReview{Spec: auth.TokenReviewSpec{Token: r.PostForm.Get("subject_token"), Audiences: []string{settings.SubjectAudience}}}, meta.CreateOptions{})
 	if err != nil || !review.Status.Authenticated || review.Status.Error != "" || review.Status.User.Username != settings.SubjectUsername || review.Status.User.UID != settings.SubjectUID || !credential.SameSet(review.Status.User.Groups, settings.SubjectGroups) || len(review.Status.Audiences) != 1 || review.Status.Audiences[0] != settings.SubjectAudience {
+		http.Error(w, rejected.Error(), http.StatusUnauthorized)
+		return
+	}
+	b.recordProjection(r.PostForm.Get("subject_token"))
+	if b.rejectReviewedSubject(r.PostForm.Get("subject_token")) {
 		http.Error(w, rejected.Error(), http.StatusUnauthorized)
 		return
 	}
