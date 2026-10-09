@@ -32,3 +32,11 @@ func TestProjectionSamplingCannotConfuseDifferentPodsWithRotation(t *testing.T) 
 		t.Fatal("new fixture enrollment retained predecessor observations")
 	}
 }
+
+func TestRejectedSubjectRequiresChangedProjection(t *testing.T) {
+	b := &Broker{}
+	b.rejectProjectedOnce()
+	if !b.rejectReviewedSubject("synthetic-first") || !b.rejectReviewedSubject("synthetic-first") || b.rejectReviewedSubject("synthetic-replacement") || b.rejectionCount() != 2 {
+		t.Fatal("subject rejection latch did not require a changed projection")
+	}
+}

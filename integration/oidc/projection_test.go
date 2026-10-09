@@ -16,6 +16,7 @@ import (
 	"github.com/rayselfs/kube-token-requestor/internal/issue"
 	"github.com/rayselfs/kube-token-requestor/internal/provider"
 	"github.com/rayselfs/kube-token-requestor/internal/publish"
+	"github.com/rayselfs/kube-token-requestor/internal/status"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -86,6 +87,19 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 	if err != nil || deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 0 || len(deployment.Spec.Template.Spec.Containers) != 1 || deployment.Spec.Template.Spec.Containers[0].Image != image {
 		t.Fatal("stopped published controller fixture invalid")
 	}
+	sourceVersions := map[string]string{}
+	for _, ref := range []*config.Ref{c.Provider.TrustSecret, c.Provider.ClientSecret} {
+		source, err := client.CoreV1().Secrets(ref.Namespace).Get(ctx, ref.Name, meta.GetOptions{})
+		if err != nil || string(source.UID) != ref.UID {
+			t.Fatal("projection source identity invalid")
+		}
+		sourceVersions[ref.Name] = source.ResourceVersion
+	}
+	durable, err := client.CoreV1().ConfigMaps("requestor-test").Get(ctx, name+"-status", meta.GetOptions{})
+	if err != nil {
+		t.Fatal("projection status identity read failed")
+	}
+	store := &status.Store{Client: client, Namespace: durable.Namespace, Name: durable.Name, UID: string(durable.UID)}
 	deploymentUID := deployment.UID
 	activated := false
 	for attempt := 0; attempt < 20; attempt++ {
@@ -135,6 +149,7 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 	previous, publications := "", 0
 	rotated, readySeen := false, false
 	publicationAtRotation := 0
+	rejectionArmed, rejectionSeen := false, false
 	deadline := time.Now().Add(12 * time.Minute)
 	for time.Now().Before(deadline) && ctx.Err() == nil {
 		pods, err := client.CoreV1().Pods("requestor-test").List(ctx, meta.ListOptions{LabelSelector: "app.kubernetes.io/instance=projection,app.kubernetes.io/name=kube-token-requestor"})
@@ -201,12 +216,32 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 				publications++
 			}
 		}
-		if readySeen && rotated && publications >= 3 && publications >= publicationAtRotation+2 {
+		if readySeen && publications >= 1 && !rejectionArmed {
+			broker.rejectProjectedOnce()
+			rejectionArmed = true
+		}
+		state, stateErr := store.Read(ctx)
+		if stateErr != nil {
+			t.Fatal("projection recovery status read failed")
+		}
+		if state.Consumers[consumer.ID].Condition == "BootstrapRequired" && broker.rejectionCount() > 0 {
+			rejectionSeen = true
+		}
+		if readySeen && rejectionSeen && rotated && publications >= 3 && publications >= publicationAtRotation+2 {
 			latest, err := client.AppsV1().Deployments(d.Namespace).Get(ctx, d.Name, meta.GetOptions{})
 			if err != nil || latest.UID != d.UID || latest.Spec.Replicas == nil || *latest.Spec.Replicas != 0 {
 				t.Fatal("stopped CA fixture was modified")
 			}
-			t.Log("published OAuth controller passed: two unchanged Ready Pods, real bound-Pod projection rotation, valid repeated CA publication; CA stayed stopped")
+			if broker.rejectionCount() != 1 {
+				t.Fatal("rejected unchanged subject was retried")
+			}
+			for _, ref := range []*config.Ref{c.Provider.TrustSecret, c.Provider.ClientSecret} {
+				source, err := client.CoreV1().Secrets(ref.Namespace).Get(ctx, ref.Name, meta.GetOptions{})
+				if err != nil || string(source.UID) != ref.UID || source.ResourceVersion != sourceVersions[ref.Name] {
+					t.Fatal("OAuth recovery mutated provider source metadata")
+				}
+			}
+			t.Log("published OAuth controller passed: rejected subject recovered without source Secret changes; two unchanged Ready Pods, real bound-Pod projection rotation, valid repeated CA publication; CA stayed stopped")
 			return
 		}
 		select {
@@ -215,5 +250,5 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 		case <-time.After(5 * time.Second):
 		}
 	}
-	t.Fatalf("published projection acceptance failed: ready=%t rotated=%t publications=%d", readySeen, rotated, publications)
+	t.Fatalf("published projection acceptance failed: ready=%t rotated=%t rejected=%t publications=%d", readySeen, rotated, rejectionSeen, publications)
 }

@@ -43,6 +43,9 @@ type Broker struct {
 	discoveryRequests atomic.Uint64
 	jwksRequests      atomic.Uint64
 	projected         map[string]projectionSample
+	rejectNext        bool
+	rejectedHash      [32]byte
+	rejectedCalls     uint64
 }
 
 type projectionSample struct {
@@ -60,6 +63,7 @@ func (b *Broker) BindProjectedSubject(username, uid string) error {
 	defer b.mu.Unlock()
 	b.settings.SubjectUsername, b.settings.SubjectUID = username, uid
 	b.projected = map[string]projectionSample{}
+	b.rejectNext, b.rejectedHash, b.rejectedCalls = false, [32]byte{}, 0
 	return nil
 }
 
@@ -104,6 +108,33 @@ func (b *Broker) recordProjection(token string) {
 		sample.hash, sample.LatestExpiry = hash, claims.Expires
 	}
 	b.projected[claims.Kubernetes.Pod.UID] = sample
+}
+
+// rejectProjectedOnce holds one reviewed subject hash until kubelet replaces it.
+// Neither the token nor its private fingerprint leaves this in-memory fixture.
+func (b *Broker) rejectProjectedOnce() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.rejectNext = true
+}
+func (b *Broker) rejectReviewedSubject(token string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	hash := sha256.Sum256([]byte(token))
+	if b.rejectNext {
+		b.rejectedHash = hash
+		b.rejectNext = false
+	}
+	if b.rejectedHash == hash {
+		b.rejectedCalls++
+		return true
+	}
+	return false
+}
+func (b *Broker) rejectionCount() uint64 {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.rejectedCalls
 }
 
 func New(settings Settings) (*Broker, error) {
@@ -231,6 +262,10 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b.recordProjection(r.PostForm.Get("subject_token"))
+	if b.rejectReviewedSubject(r.PostForm.Get("subject_token")) {
+		http.Error(w, rejected.Error(), http.StatusUnauthorized)
+		return
+	}
 	now := time.Now()
 	token, err := jwt.Signed(signer).Claims(jwt.Claims{Issuer: settings.Issuer, Subject: "issuer", Audience: jwt.Audience{settings.ChildAudience}, IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), Expiry: jwt.NewNumericDate(now.Add(10 * time.Minute))}).Claims(struct {
 		Groups []string `json:"groups"`
