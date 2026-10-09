@@ -3,6 +3,7 @@ module github.com/rayselfs/kube-token-requestor
 go 1.26.9
 
 require (
+	github.com/go-jose/go-jose/v4 v4.1.5
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	gopkg.in/evanphx/json-patch.v4 v4.13.0

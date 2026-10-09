@@ -1,0 +1,46 @@
+name: Synthetic JWT API acceptance
+
+on:
+  push:
+    paths:
+      - 'integration/oidc/**'
+      - 'internal/provider/**'
+      - 'internal/issue/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/oauth-acceptance.yml'
+  pull_request:
+    paths:
+      - 'integration/oidc/**'
+      - 'internal/provider/**'
+      - 'internal/issue/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/oauth-acceptance.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jwt-api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jwt-api:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.26.9'
+          cache: false
+      - run: go install sigs.k8s.io/kind@v0.33.0
+      - name: Real synthetic JWT API and restricted TokenRequest
+        env:
+          REQUESTOR_OIDC_API: '1'
+        run: go test -v -count=1 -timeout=15m ./integration/oidc -run '^TestActualKubernetes$'
