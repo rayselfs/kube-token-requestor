@@ -147,8 +147,18 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 	if issuance && *c.Enabled {
 		revision, err := e.inputs(ctx, c, generation)
 		acquisition = err
+		authRevision := revision
+		selected := e.Providers[c.Provider.Type]
+		if acquisition == nil && selected != nil {
+			marker, err := selected.InputRevision(ctx, c)
+			if err != nil {
+				acquisition = provider.Classify(err)
+			} else if marker != "" {
+				authRevision += "/" + marker
+			}
+		}
 		e.mu.Lock()
-		blocked := e.blocked[c.ID] == revision && revision != ""
+		blocked := e.blocked[c.ID] == authRevision && authRevision != ""
 		budget := e.throttled[c.ID]
 		e.mu.Unlock()
 		if blocked {
@@ -157,7 +167,6 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 			acquisition = &provider.Retry{After: budget.until.Sub(e.Now())}
 		}
 		attempted := false
-		selected := e.Providers[c.Provider.Type]
 		if acquisition != nil {
 			// Retry only metadata after bootstrap rejection until a reviewed input changes.
 		} else if selected == nil {
@@ -198,7 +207,7 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 			if e.blocked == nil {
 				e.blocked = map[string]string{}
 			}
-			e.blocked[c.ID] = revision
+			e.blocked[c.ID] = authRevision
 			e.mu.Unlock()
 		}
 	}
