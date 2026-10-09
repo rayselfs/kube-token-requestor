@@ -112,9 +112,12 @@ func TestActualKubernetes(t *testing.T) {
 	go func() {
 		_ = server.Serve(tls.NewListener(listener, &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}}))
 	}()
-	patch := "apiVersion: kubeadm.k8s.io/v1beta4\nkind: ClusterConfiguration\napiServer:\n  extraArgs:\n"
-	for _, flag := range [][2]string{{"oidc-issuer-url", issuerURL}, {"oidc-client-id", "fixture-child"}, {"oidc-ca-file", "/etc/requestor-oidc/ca.crt"}, {"oidc-username-claim", "sub"}, {"oidc-username-prefix", "fixture:"}, {"oidc-groups-claim", "groups"}, {"oidc-groups-prefix", "fixture:"}} {
-		patch += "  - name: " + flag[0] + "\n    value: " + strconv.Quote(flag[1]) + "\n"
+	// Pinned kind 0.33 selects beta3 below Kubernetes 1.36. A version-mismatched
+	// patch is silently skipped, so verify effective apiserver flags below as well.
+	patch := "apiVersion: kubeadm.k8s.io/v1beta3\nkind: ClusterConfiguration\napiServer:\n  extraArgs:\n"
+	flags := [][2]string{{"oidc-issuer-url", issuerURL}, {"oidc-client-id", "fixture-child"}, {"oidc-ca-file", "/etc/requestor-oidc/ca.crt"}, {"oidc-username-claim", "sub"}, {"oidc-username-prefix", "fixture:"}, {"oidc-groups-claim", "groups"}, {"oidc-groups-prefix", "fixture:"}}
+	for _, flag := range flags {
+		patch += "    " + flag[0] + ": " + strconv.Quote(flag[1]) + "\n"
 	}
 	patch += "  extraVolumes:\n  - name: requestor-oidc-trust\n    hostPath: /etc/requestor-oidc/ca.crt\n    mountPath: /etc/requestor-oidc/ca.crt\n    readOnly: true\n    pathType: File\n"
 	kindConfig := map[string]any{"kind": "Cluster", "apiVersion": "kind.x-k8s.io/v1alpha4", "nodes": []any{map[string]any{"role": "control-plane", "kubeadmConfigPatches": []string{patch}, "extraMounts": []any{map[string]any{"hostPath": caPath, "containerPath": "/etc/requestor-oidc/ca.crt", "readOnly": true}}}}}
@@ -146,6 +149,19 @@ func TestActualKubernetes(t *testing.T) {
 	nodes, err := admin.CoreV1().Nodes().List(ctx, meta.ListOptions{})
 	if err != nil || len(nodes.Items) != 1 || nodes.Items[0].Name != name+"-control-plane" {
 		t.Fatal("synthetic API node ownership invalid")
+	}
+	apiserver, err := admin.CoreV1().Pods("kube-system").Get(ctx, "kube-apiserver-"+name+"-control-plane", meta.GetOptions{})
+	if err != nil || len(apiserver.Spec.Containers) != 1 {
+		t.Fatal("synthetic apiserver configuration unavailable")
+	}
+	for _, flag := range flags {
+		found := false
+		for _, argument := range apiserver.Spec.Containers[0].Command {
+			found = found || argument == "--"+flag[0]+"="+flag[1]
+		}
+		if !found {
+			t.Fatal("synthetic apiserver OIDC patch did not take effect")
+		}
 	}
 	system, err := admin.CoreV1().Namespaces().Get(ctx, "kube-system", meta.GetOptions{})
 	if err != nil {
@@ -201,7 +217,7 @@ func TestActualKubernetes(t *testing.T) {
 				return identity, client
 			}
 			if attempt == 19 {
-				t.Logf("JWT fixture diagnostics: discovery=%d jwks=%d identityClass=%s", b.discoveryRequests.Load(), b.jwksRequests.Load(), provider.Classify(issue.Identity(ctx, client, cluster, cluster.ExpectedIssuer)))
+				t.Logf("JWT fixture diagnostics: discovery=%d jwks=%d identityClass=%v", b.discoveryRequests.Load(), b.jwksRequests.Load(), provider.Classify(issue.Identity(ctx, client, cluster, cluster.ExpectedIssuer)))
 				result, reviewErr := admin.AuthenticationV1().TokenReviews().Create(ctx, &auth.TokenReview{Spec: auth.TokenReviewSpec{Token: identity.Bearer}}, meta.CreateOptions{})
 				if reviewErr == nil {
 					t.Logf("actual JWT review: authenticated=%t username=%q groups=%v errorPresent=%t", result.Status.Authenticated, result.Status.User.Username, result.Status.User.Groups, result.Status.Error != "")
