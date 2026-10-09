@@ -68,6 +68,8 @@ type IssuerCredential struct {
 }
 type IssuerProvider interface {
 	Acquire(context.Context, config.Cluster) (IssuerCredential, error)
+	// InputRevision is a private opaque marker for inputs outside API Secret metadata.
+	InputRevision(context.Context, config.Cluster) (string, error)
 }
 
 func ReadSecret(ctx context.Context, client kubernetes.Interface, ref config.Ref, keys ...string) (*core.Secret, error) {
@@ -121,6 +123,10 @@ func HTTP(ca []byte) (*http.Client, error) {
 type SecretIssuer struct {
 	Management kubernetes.Interface
 	Now        func() time.Time
+}
+
+func (p SecretIssuer) InputRevision(ctx context.Context, _ config.Cluster) (string, error) {
+	return "", Classify(ctx.Err())
 }
 
 func (p SecretIssuer) Acquire(ctx context.Context, c config.Cluster) (IssuerCredential, error) {

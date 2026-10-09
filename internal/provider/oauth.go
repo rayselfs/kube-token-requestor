@@ -25,6 +25,20 @@ type OAuthTokenExchange struct {
 	Now        func() time.Time
 }
 
+func (p OAuthTokenExchange) InputRevision(ctx context.Context, c config.Cluster) (string, error) {
+	if ctx.Err() != nil {
+		return "", Classify(ctx.Err())
+	}
+	if p.Subject == nil || c.Provider.Type != "OAuthTokenExchange" {
+		return "", Trust
+	}
+	subject, err := p.Subject(c.Provider.SubjectTokenVolume)
+	if err != nil || len(subject) == 0 || len(subject) > 32768 {
+		return "", Auth
+	}
+	return credential.Hash(subject), nil
+}
+
 func (p OAuthTokenExchange) Acquire(ctx context.Context, c config.Cluster) (IssuerCredential, error) {
 	var result IssuerCredential
 	settings := c.Provider
