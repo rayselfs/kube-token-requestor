@@ -30,6 +30,12 @@ jobs:
           echo '2a542df32eac02ee17b9d844fb2aa1de00dafa5476579ba8a3ba862e9d572ea0 '"$RUNNER_TEMP/prometheus.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/prometheus.tar.gz" -C "$RUNNER_TEMP" prometheus-3.15.0.linux-amd64/promtool
           echo "$RUNNER_TEMP/prometheus-3.15.0.linux-amd64" >> "$GITHUB_PATH"
+      - name: Install pinned Alertmanager for isolated receiver tests
+        run: |
+          curl -fsSL https://github.com/prometheus/alertmanager/releases/download/v0.34.1/alertmanager-0.34.1.linux-amd64.tar.gz -o "$RUNNER_TEMP/alertmanager.tar.gz"
+          echo '265b9d1e55ef0d5306a436018af6d2b686c2ce051f03d968f7464ecb1372a7e8 '"$RUNNER_TEMP/alertmanager.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/alertmanager.tar.gz" -C "$RUNNER_TEMP" alertmanager-0.34.1.linux-amd64/alertmanager
+          echo "$RUNNER_TEMP/alertmanager-0.34.1.linux-amd64" >> "$GITHUB_PATH"
       - run: go test -race ./...
       - run: go vet ./...
       - run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
