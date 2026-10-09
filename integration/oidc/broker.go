@@ -5,12 +5,14 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,6 +42,68 @@ type Broker struct {
 	subjectLive       bool
 	discoveryRequests atomic.Uint64
 	jwksRequests      atomic.Uint64
+	projected         map[string]projectionSample
+}
+
+type projectionSample struct {
+	hash                      [32]byte
+	Count                     int
+	FirstExpiry, LatestExpiry int64
+}
+
+// BindProjectedSubject enrolls the Helm-created account in this synthetic fixture only.
+func (b *Broker) BindProjectedSubject(username, uid string) error {
+	if username == "" || uid == "" {
+		return rejected
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.settings.SubjectUsername, b.settings.SubjectUID = username, uid
+	b.projected = map[string]projectionSample{}
+	return nil
+}
+
+func (b *Broker) projectedSample(uid string) projectionSample {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.projected[uid]
+}
+
+func (b *Broker) recordProjection(token string) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return
+	}
+	var claims struct {
+		Expires    int64 `json:"exp"`
+		Kubernetes struct {
+			Pod struct {
+				UID string `json:"uid"`
+			} `json:"pod"`
+		} `json:"kubernetes.io"`
+	}
+	if json.Unmarshal(payload, &claims) != nil || claims.Kubernetes.Pod.UID == "" {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.projected == nil {
+		return
+	}
+	sample := b.projected[claims.Kubernetes.Pod.UID]
+	hash := sha256.Sum256([]byte(token))
+	if sample.Count == 0 {
+		sample.FirstExpiry = claims.Expires
+	}
+	if hash != sample.hash {
+		sample.Count++
+		sample.hash, sample.LatestExpiry = hash, claims.Expires
+	}
+	b.projected[claims.Kubernetes.Pod.UID] = sample
 }
 
 func New(settings Settings) (*Broker, error) {
@@ -166,6 +230,7 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, rejected.Error(), http.StatusUnauthorized)
 		return
 	}
+	b.recordProjection(r.PostForm.Get("subject_token"))
 	now := time.Now()
 	token, err := jwt.Signed(signer).Claims(jwt.Claims{Issuer: settings.Issuer, Subject: "issuer", Audience: jwt.Audience{settings.ChildAudience}, IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), Expiry: jwt.NewNumericDate(now.Add(10 * time.Minute))}).Claims(struct {
 		Groups []string `json:"groups"`

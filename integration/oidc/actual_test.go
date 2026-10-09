@@ -39,7 +39,7 @@ import (
 )
 
 // This opt-in Linux fixture owns a fresh Docker network and kind API. It tests the provider
-// against real JWT authentication, not a deployed controller or kubelet projection reload.
+// against real JWT authentication; verified artifact inputs opt into deployed projection checks.
 func TestActualKubernetes(t *testing.T) {
 	if os.Getenv("REQUESTOR_OIDC_API") != "1" {
 		t.Skip("opt-in synthetic Docker/kind API acceptance")
@@ -47,7 +47,7 @@ func TestActualKubernetes(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Fatal("this synthetic gateway fixture requires a Linux Docker host")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
 	defer cancel()
 	root := t.TempDir()
 	nonce := make([]byte, 8)
@@ -121,6 +121,9 @@ func TestActualKubernetes(t *testing.T) {
 	}
 	patch += "  extraVolumes:\n  - name: requestor-oidc-trust\n    hostPath: /etc/requestor-oidc/ca.crt\n    mountPath: /etc/requestor-oidc/ca.crt\n    readOnly: true\n    pathType: File\n"
 	kindConfig := map[string]any{"kind": "Cluster", "apiVersion": "kind.x-k8s.io/v1alpha4", "nodes": []any{map[string]any{"role": "control-plane", "kubeadmConfigPatches": []string{patch}, "extraMounts": []any{map[string]any{"hostPath": caPath, "containerPath": "/etc/requestor-oidc/ca.crt", "readOnly": true}}}}}
+	if os.Getenv("REQUESTOR_OIDC_CONTROLLER_IMAGE") != "" {
+		kindConfig["nodes"] = append(kindConfig["nodes"].([]any), map[string]any{"role": "worker"})
+	}
 	data, _ := json.Marshal(kindConfig)
 	configPath, kubeconfig := filepath.Join(root, "kind.json"), filepath.Join(root, "kubeconfig")
 	if os.WriteFile(configPath, data, 0600) != nil {
@@ -147,8 +150,13 @@ func TestActualKubernetes(t *testing.T) {
 		t.Fatal("synthetic API client creation failed")
 	}
 	nodes, err := admin.CoreV1().Nodes().List(ctx, meta.ListOptions{})
-	if err != nil || len(nodes.Items) != 1 || nodes.Items[0].Name != name+"-control-plane" {
+	if err != nil || len(nodes.Items) < 1 || len(nodes.Items) > 2 {
 		t.Fatal("synthetic API node ownership invalid")
+	}
+	for _, node := range nodes.Items {
+		if node.Name != name+"-control-plane" && (os.Getenv("REQUESTOR_OIDC_CONTROLLER_IMAGE") == "" || node.Name != name+"-worker") {
+			t.Fatal("synthetic API node ownership invalid")
+		}
 	}
 	apiserver, err := admin.CoreV1().Pods("kube-system").Get(ctx, "kube-apiserver-"+name+"-control-plane", meta.GetOptions{})
 	if err != nil || len(apiserver.Spec.Containers) != 1 {
@@ -170,7 +178,7 @@ func TestActualKubernetes(t *testing.T) {
 	consumer, subject := bootstrapActual(t, ctx, admin)
 	mint := func(namespace, account, audience string) string {
 		t.Helper()
-		ttl := int64(900)
+		ttl := int64(1800)
 		response, err := admin.CoreV1().ServiceAccounts(namespace).CreateToken(ctx, account, &auth.TokenRequest{Spec: auth.TokenRequestSpec{Audiences: []string{audience}, ExpirationSeconds: &ttl}}, meta.CreateOptions{})
 		if err != nil {
 			t.Fatal("synthetic bootstrap TokenRequest failed")
@@ -292,7 +300,10 @@ func TestActualKubernetes(t *testing.T) {
 	if err != nil || issue.ValidateConsumer(ctx, caClient, cluster, cluster.Consumers[0]) != nil {
 		t.Fatal("independent CA credential was invalidated by issuer rotation")
 	}
-	t.Log("actual JWT API acceptance passed: restricted issuer/consumer rights, named TokenRequest, JWKS predecessor rejection, client-source rotation, subject UID revocation; no deployed controller/projection or operator cluster")
+	if os.Getenv("REQUESTOR_OIDC_CONTROLLER_IMAGE") != "" {
+		deployedProjection(t, ctx, admin, b, root, name, kubeconfig, cluster)
+	}
+	t.Log("actual JWT API acceptance passed: restricted issuer/consumer rights, named TokenRequest, JWKS predecessor rejection, client-source rotation, subject UID revocation; deployed projection is reported separately; no operator cluster")
 }
 
 func bootstrapActual(t *testing.T, ctx context.Context, client kubernetes.Interface) (*core.ServiceAccount, *core.ServiceAccount) {
