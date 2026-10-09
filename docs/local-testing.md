@@ -29,6 +29,12 @@ from registry outputs and pass it explicitly; synthetic stopped-image hashes are
   verify recovery. Then temporarily replace only the stopped consumer's ownership annotation
   and prove the sibling rotates without overwriting the foreign-owned output. Annotation changes
   use UID/resourceVersion/value CAS and cleanup reports failure. No credential data is changed.
+- `partition`: verify both actual child UIDs and the kind ownership/role labels of the exact
+  `requestor-child-a-control-plane` container, then pause only that container for five minutes.
+  After draining in-flight calls, require its output to stay unchanged while child-b rotates at
+  least twice. Unpause even on failure, require issuance recovery within 150 seconds and recheck
+  the original child UID. The accelerated fixture starts with at least eight minutes of remaining
+  token lifetime; this is transport isolation, not an expiry/safety-stop or VM provisioning drill.
 
 - `stop-start`: require a stopped, unlatched second consumer with no outstanding restart intent;
   stop and drain the local requestor for a guarded reload-policy handoff, then observe three
