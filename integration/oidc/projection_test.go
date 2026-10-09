@@ -25,15 +25,18 @@ import (
 
 // Uses only the uniquely generated API already verified by TestActualKubernetes.
 // The broker observes authenticated bound-Pod subjects without exporting their token bytes.
-func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Interface, broker *Broker, root, clusterName, kubeconfig string, c config.Cluster) {
+func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Interface, broker *Broker, root, clusterName, kubeconfig string, c config.Cluster, apiCA []byte) {
 	t.Helper()
 	image, chart := os.Getenv("REQUESTOR_OIDC_CONTROLLER_IMAGE"), os.Getenv("REQUESTOR_OIDC_CONTROLLER_CHART")
 	if !regexp.MustCompile(`^ghcr\.io/rayselfs/kube-token-requestor@sha256:[0-9a-f]{64}$`).MatchString(image) || chart == "" || !filepath.IsAbs(chart) {
 		t.Fatal("verified published fixture artifacts required")
 	}
+	if len(apiCA) == 0 || credential.Hash(apiCA) != c.CASHA256 {
+		t.Fatal("synthetic controller public API trust is not pinned")
+	}
 	digest := strings.Split(image, "@")[1]
 	enabled, zero := true, int32(0)
-	output, err := client.CoreV1().Secrets("requestor-test").Create(ctx, &core.Secret{ObjectMeta: meta.ObjectMeta{Name: "ca-output", Annotations: map[string]string{publish.Owner: "ca-one"}}, Type: core.SecretTypeOpaque, Data: map[string][]byte{"ca.crt": {}, "token": {}}}, meta.CreateOptions{})
+	output, err := client.CoreV1().Secrets("requestor-test").Create(ctx, &core.Secret{ObjectMeta: meta.ObjectMeta{Name: "ca-output", Annotations: map[string]string{publish.Owner: "ca-one"}}, Type: core.SecretTypeOpaque, Data: map[string][]byte{"ca.crt": append([]byte(nil), apiCA...), "token": {}}}, meta.CreateOptions{})
 	if err != nil {
 		t.Fatal("synthetic controller output bootstrap failed")
 	}
@@ -172,5 +175,5 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 		case <-time.After(5 * time.Second):
 		}
 	}
-	t.Fatal("published controller did not renew after actual kubelet subject projection rotation")
+	t.Fatalf("published projection acceptance failed: ready=%t rotated=%t publications=%d", readySeen, rotated, publications)
 }

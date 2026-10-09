@@ -301,7 +301,7 @@ func TestActualKubernetes(t *testing.T) {
 		t.Fatal("independent CA credential was invalidated by issuer rotation")
 	}
 	if os.Getenv("REQUESTOR_OIDC_CONTROLLER_IMAGE") != "" {
-		deployedProjection(t, ctx, admin, b, root, name, kubeconfig, cluster)
+		deployedProjection(t, ctx, admin, b, root, name, kubeconfig, cluster, adminConfig.CAData)
 	}
 	t.Log("actual JWT API acceptance passed: restricted issuer/consumer rights, named TokenRequest, JWKS predecessor rejection, client-source rotation, subject UID revocation; deployed projection is reported separately; no operator cluster")
 }
