@@ -1,7 +1,20 @@
 # GitHub release and compatibility contract
 
-Status: `v0.1.0-rc.2` is published with public signed image/chart and native platform/Helm smoke.
+Status: `v0.1.0-rc.4` is published with public signed image/chart and native platform/Helm smoke.
 The support status is experimental; its accepted production matrix remains empty.
+
+RC4 binds source `cb84745db90a88c4430f4c15f6a6a4c50e81a00c`. The complete
+[paired release workflow](https://github.com/rayselfs/kube-token-requestor/actions/runs/37862977110)
+passed on native amd64/arm64: anonymous pull, signatures, hardened startup, complete license-text
+comparison and retained-state Helm install/upgrade/uninstall/reinstall on synthetic Kubernetes
+1.35.8. Image, chart and manifest signatures were also independently verified locally against
+the exact release workflow identity. These distribution smokes use an empty fleet and do not
+constitute provider/CA compatibility or production acceptance. The separate released-image
+[multi-child CA acceptance run](https://github.com/rayselfs/kube-token-requestor/actions/runs/37863931683)
+must be checked for its actual final result; dispatch/in-progress status is not passing evidence.
+
+RC2 is superseded for new acceptance testing. Its original artifacts/evidence below remain
+immutable; RC4 includes lifecycle/RBAC hardening and current HTTP dependency security fixes.
 
 RC2 binds source `36a37434498a6f084f4c862509e1971ef6668a7e`. Both native platforms passed anonymous
 pulls, signature verification, startup and retained-state Helm install/upgrade/uninstall/reinstall
