@@ -44,5 +44,14 @@ export REQUESTOR_CAPACITY_MANIFEST="$root/assets/release-manifest.json"
 export REQUESTOR_CAPACITY_EVIDENCE="$root/evidence.json"
 : "${REQUESTOR_CAPACITY_CHILDREN:?}"
 [[ "$REQUESTOR_CAPACITY_CHILDREN" == 2 || "$REQUESTOR_CAPACITY_CHILDREN" == 20 ]] || exit 1
+profile="${REQUESTOR_CAPACITY_PROFILE:-capacity}"
+case "$profile" in
+  capacity) test_name=TestRealChildCapacity; test_timeout=60m ;;
+  consumer-failure)
+    [[ "$REQUESTOR_CAPACITY_CHILDREN" == 2 ]] || exit 1
+    export REQUESTOR_CAPACITY_CONSUMER_FAILURE=1
+    test_name=TestActualConsumerFailureIsolation; test_timeout=30m ;;
+  *) exit 1 ;;
+esac
 go install sigs.k8s.io/kind@v0.33.0
-go test -v -count=1 -timeout=60m ./integration/capacity -run '^TestRealChildCapacity$'
+go test -v -count=1 -timeout="$test_timeout" ./integration/capacity -run "^${test_name}$"
