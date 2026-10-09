@@ -18,6 +18,7 @@ import (
 	"github.com/rayselfs/kube-token-requestor/internal/publish"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -76,28 +77,49 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 	if err != nil || deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 0 || len(deployment.Spec.Template.Spec.Containers) != 1 || deployment.Spec.Template.Spec.Containers[0].Image != image {
 		t.Fatal("stopped published controller fixture invalid")
 	}
-	projected := false
-	for i := range deployment.Spec.Template.Spec.Volumes {
-		v := &deployment.Spec.Template.Spec.Volumes[i]
-		if v.Name != c.Provider.SubjectTokenVolume || v.Projected == nil {
-			continue
+	deploymentUID := deployment.UID
+	activated := false
+	for attempt := 0; attempt < 20; attempt++ {
+		deployment, err = client.AppsV1().Deployments("requestor-test").Get(ctx, name, meta.GetOptions{})
+		if err != nil || deployment.UID != deploymentUID || deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 0 || len(deployment.Spec.Template.Spec.Containers) != 1 || deployment.Spec.Template.Spec.Containers[0].Image != image {
+			t.Fatal("stopped projection fixture changed before activation")
 		}
-		for j := range v.Projected.Sources {
-			s := &v.Projected.Sources[j]
-			if s.ServiceAccountToken != nil && s.ServiceAccountToken.Audience == c.Provider.SubjectTokenAudience && s.ServiceAccountToken.Path == "token" {
-				seconds := int64(600) // accelerated kubelet projection only; shipped chart remains 3600
-				s.ServiceAccountToken.ExpirationSeconds = &seconds
-				projected = true
+		projected := false
+		for i := range deployment.Spec.Template.Spec.Volumes {
+			v := &deployment.Spec.Template.Spec.Volumes[i]
+			if v.Name != c.Provider.SubjectTokenVolume || v.Projected == nil {
+				continue
+			}
+			for j := range v.Projected.Sources {
+				s := &v.Projected.Sources[j]
+				if s.ServiceAccountToken != nil && s.ServiceAccountToken.Audience == c.Provider.SubjectTokenAudience && s.ServiceAccountToken.Path == "token" {
+					seconds := int64(600) // accelerated fixture only; shipped chart remains 3600
+					s.ServiceAccountToken.ExpirationSeconds = &seconds
+					projected = true
+				}
 			}
 		}
+		if !projected {
+			t.Fatal("chart did not render an explicit subject projection")
+		}
+		two := int32(2)
+		deployment.Spec.Replicas = &two
+		_, err = client.AppsV1().Deployments("requestor-test").Update(ctx, deployment, meta.UpdateOptions{})
+		if err == nil {
+			activated = true
+			break
+		}
+		if !apierrors.IsConflict(err) {
+			t.Fatal("synthetic projection activation failed")
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("synthetic projection activation cancelled")
+		case <-time.After(200 * time.Millisecond):
+		}
 	}
-	if !projected {
-		t.Fatal("chart did not render an explicit subject projection")
-	}
-	two := int32(2)
-	deployment.Spec.Replicas = &two
-	if _, err := client.AppsV1().Deployments("requestor-test").Update(ctx, deployment, meta.UpdateOptions{}); err != nil {
-		t.Fatal("synthetic projection activation CAS failed")
+	if !activated {
+		t.Fatal("synthetic projection activation remained conflicted")
 	}
 	// Entire fixture is removed by its outer cluster cleanup. Never uninstall against another API.
 	initialPods := map[types.UID]bool{}
@@ -114,6 +136,15 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 		for _, pod := range pods.Items {
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.RestartCount != 0 {
+					logs, _ := client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &core.PodLogOptions{Container: "controller", Previous: true}).DoRaw(ctx)
+					for _, class := range []string{"TrustRejected", "BootstrapRequired", "Transport", "Conflict", "invalid runtime arguments", "internal HTTP listener failed", "panic:"} {
+						if strings.Contains(string(logs), class) {
+							t.Logf("controller startup diagnostic class=%s", class)
+						}
+					}
+					if status.LastTerminationState.Terminated != nil {
+						t.Logf("controller startup exitCode=%d", status.LastTerminationState.Terminated.ExitCode)
+					}
 					t.Fatal("published controller restarted during projection observation")
 				}
 			}
