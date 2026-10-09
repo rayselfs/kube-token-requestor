@@ -29,9 +29,10 @@ allow the API's validation tolerance. The corrected harness allows at most two m
 requires observed rejection; it does not accept a token indefinitely or assume local claim parsing
 proves API authentication. The complete corrected 13-minute run exited successfully.
 
-Stable gates still include real OAuth API/trust rotation, complete consumer/child/management
-failure and revocation drills, capacity acceptance, natural-lifetime observation, monitoring
-receiver, sole-writer adoption and paired public release verification. No stable acceptance report
+Stable gates still include deployed OAuth projection/rotation, complete consumer/child/management
+failure and revocation drills, capacity acceptance, natural-lifetime observation, all monitoring
+receiver profiles and sole-writer adoption. The newer release and OAuth fixture evidence below
+does not retroactively change these development results. No stable acceptance report
 is fabricated from these partial development results.
 
 ## Released RC2 native API acceptance
@@ -52,3 +53,33 @@ and the previous token was rejected by the real API. Both children rotated after
 active CA retained its Ready Pod UID. The adopted replacement remains restricted and was not
 rolled back to the revoked predecessor. This is synthetic SecretIssuer recovery, not OAuth
 revocation or operator-cluster acceptance.
+
+## Released RC4 native API acceptance
+
+The [released-image run](https://github.com/rayselfs/kube-token-requestor/actions/runs/37863931683)
+completed successfully on both native amd64 and arm64. Controller and harness source are both
+`cb84745db90a88c4430f4c15f6a6a4c50e81a00c`; version is `v0.1.0-rc.4`. Sanitized records are preserved
+under `integration/evidence/rc4/`. Both used Kubernetes 1.35.8 and CA 1.35.2 with SecretIssuer.
+
+Measured passing checks: three distinct restricted identities/effective grants; the same actual
+CA Pod across two TokenFile rotations and predecessor rejection; isolated issuer/stopped-output
+failures; two actual StopStart Pod replacements with manually suspended CA retained at zero;
+restricted issuer replacement followed by real predecessor revocation. The actual CA image
+index digest is the baseline above. No VM/node pool provisioning was involved. Accelerated
+600-second lifetimes do not satisfy the natural-lifetime or >=48-hour gate.
+
+## Real OAuth JWT API fixture
+
+Exact source `0063978bac6d0cf752112e8c6ad4bd2d53d4651b` passed all push/PR checks, including native
+amd64/arm64 [actual JWT API tests](https://github.com/rayselfs/kube-token-requestor/actions/runs/37865567132).
+This source was merged by PR #20. The fixture verifies actual OIDC apiserver flags before exchange,
+then authenticates the returned JWT against Kubernetes 1.35.8, checks named TokenRequest and
+restricted effective rights, rejects wrong UID/CA trust, removes a JWKS predecessor, rotates the
+client Secret with CAS and revokes the management subject SA UID. The already-issued CA token
+remains independently valid after subject revocation.
+
+This is a single synthetic API/provider fixture, not a deployed shared controller, kubelet
+projected-volume rotation, actual CA reload through OAuth, vendor integration or stable support
+matrix. The test broker is not part of the released controller. Earlier failed attempts are not
+accepted evidence: the kubeadm v1beta4 patch was skipped by pinned kind for Kubernetes 1.35.8;
+the corrected v1beta3 patch and effective-flag assertion passed fresh complete runs.

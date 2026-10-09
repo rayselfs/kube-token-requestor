@@ -11,7 +11,11 @@ comparison and retained-state Helm install/upgrade/uninstall/reinstall on synthe
 the exact release workflow identity. These distribution smokes use an empty fleet and do not
 constitute provider/CA compatibility or production acceptance. The separate released-image
 [multi-child CA acceptance run](https://github.com/rayselfs/kube-token-requestor/actions/runs/37863931683)
-must be checked for its actual final result; dispatch/in-progress status is not passing evidence.
+passed on both native architectures. It verified three distinct consumer identities, two actual CA
+TokenFile rotations with predecessor rejection, issuer/consumer isolation, two StopStart Pod
+replacements with manual suspension retained, and issuer replacement/revocation. Tokens used an
+accelerated 600-second policy and the CAPI fleet was empty: this proves neither natural-lifetime
+acceptance nor node provisioning. Full failure/capacity/monitoring/adoption gates remain open.
 
 RC2 is superseded for new acceptance testing. Its original artifacts/evidence below remain
 immutable; RC4 includes lifecycle/RBAC hardening and current HTTP dependency security fixes.
