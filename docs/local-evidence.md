@@ -170,3 +170,45 @@ source `7884c8a6738692666ccc8c13c132c88f2c62aca5` and owner-dispatched harness
 changed. The [profile](../integration/capacity/README.md) uses an accelerated 1200-second TTL,
 an empty read-only CAPI fleet and no node/VM provisioning. It does not claim arm64 capacity,
 natural-lifetime observation, complete fault acceptance or operator adoption.
+
+
+## RC7 frozen-source runtime acceptance
+
+[Paired RC7](https://github.com/rayselfs/kube-token-requestor/releases/tag/v0.1.0-rc.7)
+source is `8aad8fddf6a922269956d40f878976ff44909fc9`. The source fixes failed safety-preflight
+starvation; older published RC2/RC4/RC5/RC6 notes now warn against activation. Immutable tags,
+assets and signatures were preserved. RC7 manifest/checksums, image and OCI chart signatures were
+independently verified after native paired delivery passed.
+
+| Profile | Passing run | Original receipts |
+| --- | --- | --- |
+| Native CA rotations, old-token expiry, leader loss, partition, StopStart and issuer replacement | [37887326043](https://github.com/rayselfs/kube-token-requestor/actions/runs/37887326043) | [amd64](../integration/evidence/rc7/ca-amd64.json), [arm64](../integration/evidence/rc7/ca-arm64.json) |
+| Actual projected OAuth subject rejection/rotation/recovery | [37887328614](https://github.com/rayselfs/kube-token-requestor/actions/runs/37887328614) | [amd64](../integration/evidence/rc7/oauth-amd64.json), [arm64](../integration/evidence/rc7/oauth-arm64.json) |
+| Actual denied emergency stop and five healthy peers | [37887323458](https://github.com/rayselfs/kube-token-requestor/actions/runs/37887323458) | [amd64](../integration/evidence/rc7/consumer-failure-amd64.json), [arm64](../integration/evidence/rc7/consumer-failure-arm64.json) |
+| Twenty independent APIs and sixty actual unchanged CA Pods | [37887331827](https://github.com/rayselfs/kube-token-requestor/actions/runs/37887331827) | [amd64](../integration/evidence/rc7/capacity-20-amd64.json) |
+| Actual management API-node process outage | [37889525956](https://github.com/rayselfs/kube-token-requestor/actions/runs/37889525956) | [amd64](../integration/evidence/rc7/management-outage-amd64.json), [arm64](../integration/evidence/rc7/management-outage-arm64.json) |
+
+Leader Pod loss recovered in 37.1/33.1 seconds with the same Lease, retained state and actual CA
+Pod. The separate management API-node profile measured 106.1-second pauses and 49.0/49.9-second
+recovery, with all three outputs renewed without expiry rollback and the same ready CA Pod.
+It paused only the fresh runner's management control-plane container, not child APIs or the
+worker-hosted CA process. Its harness commit is `7d1a8343b95dd2a31c013728fb238d9b89d82a5f`;
+all other profile harnesses match RC7 source. The harness remains an isolated draft while main
+is frozen; the published product image was unchanged. Original JSON is copied without rewriting.
+
+The consumer-failure profile measures peer renewals after durable StopUnconfirmed and holds the
+denial for at least 90 seconds. Restoring the exact grant stops the affected CA, validates a
+restricted replacement and retains the latch without automatic resume. Capacity proves output
+rotations for every consumer, not that all sixty CA processes individually sent every new JWT;
+the separate old-token-expiry profile proves actual CA reload. Capacity is amd64, accelerated
+1200-second lifetime, separate API stores/signers and a shared fixture datastore process, with an
+empty read-only CAPI fleet. OAuth remains co-located synthetic API trust/projection, without an
+actual CA process or selected vendor product in that profile. No VM provisioning is claimed.
+
+Natural SecretIssuer/TokenFile observation started at `2026-10-09T05:22:07Z`, requested 24-hour
+tokens with 12-hour early renewal, and must remain uninterrupted for at least 48 hours with two
+natural rotations and old-token rejection. An initial seven-second background launch was
+interrupted and excluded. The foreground observer is running; no completed natural acceptance,
+operator adoption, installation on-call review or stable promotion report exists. All resources
+used here belong to synthetic local kind or fresh GitHub runners; no external deployment is
+performed or authorized by these results.
