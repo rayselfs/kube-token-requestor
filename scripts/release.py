@@ -90,7 +90,7 @@ def manifest(version, commit, image, chart, image_digest, chart_digest, index, a
   require(set(platforms) == {'linux/amd64', 'linux/arm64'}, 'Both image platforms are required')
   names = sorted(p.name for p in assets.iterdir() if p.is_file() and p.name != 'release-manifest.json')
   required = {'image-linux-amd64.spdx.json', 'image-linux-arm64.spdx.json', 'image.sigstore.json',
-        'chart.sigstore.json', f'kube-token-requestor-{version[1:]}.tgz', 'licenses.csv'}
+        'chart.sigstore.json', f'kube-token-requestor-{version[1:]}.tgz', 'licenses.csv', 'licenses.tgz'}
   require(required <= set(names), 'Missing release assets')
   return {
     'formatVersion': 1, 'controllerVersion': version, 'chartVersion': version[1:],

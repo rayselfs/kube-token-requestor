@@ -102,8 +102,21 @@ jobs:
           govulncheck ./...
           go install github.com/google/go-licenses/v2@v2.0.1
           mkdir -p dist
-          go-licenses check --allowed_licenses=Apache-2.0,BSD-3-Clause,ISC,MIT ./cmd/kube-token-requestor
-          go-licenses report ./cmd/kube-token-requestor > dist/licenses.csv
+          mkdir -p dist/licenses
+          for arch in amd64 arm64; do
+            export CGO_ENABLED=0 GOOS=linux GOARCH="$arch"
+            go-licenses check --allowed_licenses=Apache-2.0,BSD-3-Clause,ISC,MIT ./cmd/kube-token-requestor
+            go-licenses report ./cmd/kube-token-requestor > "$RUNNER_TEMP/licenses-$arch.csv"
+            go-licenses save ./cmd/kube-token-requestor --save_path "$RUNNER_TEMP/licenses-$arch"
+            cp -R "$RUNNER_TEMP/licenses-$arch/." dist/licenses/
+            chmod -R u+w dist/licenses
+          done
+          unset CGO_ENABLED GOOS GOARCH
+          cat "$RUNNER_TEMP/licenses-amd64.csv" "$RUNNER_TEMP/licenses-arm64.csv" | sort -u > dist/licenses.csv
+          cp LICENSE dist/licenses/PROJECT-LICENSE
+          cp NOTICE dist/licenses/PROJECT-NOTICE
+          cp "$(go env GOROOT)/LICENSE" dist/licenses/GO-LICENSE
+          tar -czf dist/licenses.tgz -C dist licenses
           for arch in amd64 arm64; do
             mkdir -p "dist/linux-$arch"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -buildvcs=false -ldflags "-s -w -X main.version=${VERSION#v}" -o "dist/linux-$arch/kube-token-requestor" ./cmd/kube-token-requestor
@@ -157,6 +170,7 @@ jobs:
           assert count == 1
           p.write_text(s.replace('  digest: ""', '  digest: "' + os.environ['IMAGE_DIGEST'] + '"'))
           PY
+          cp LICENSE NOTICE "$RUNNER_TEMP/chart/"
           helm lint "$RUNNER_TEMP/chart"
           helm package "$RUNNER_TEMP/chart" --version "${VERSION#v}" --app-version "${VERSION#v}" --destination dist
           printf '%s' "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin

@@ -13,6 +13,17 @@ identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/release.yml@re
 cosign verify --certificate-identity "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$IMAGE@$IMAGE_DIGEST" > "$RUNNER_TEMP/image-verification.json"
 cosign verify --certificate-identity "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$CHART@$CHART_DIGEST" > "$RUNNER_TEMP/chart-verification.json"
 cosign verify-blob --bundle dist/manifest.sigstore.json --certificate-identity "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com dist/release-manifest.json
+mkdir -p "$RUNNER_TEMP/license-bundle"
+tar -xzf dist/licenses.tgz -C "$RUNNER_TEMP/license-bundle"
+license_container=$(docker create --platform "linux/$ARCH" --network none "$IMAGE@$IMAGE_DIGEST" version)
+trap 'docker rm "$license_container" >/dev/null' EXIT
+docker cp "$license_container:/licenses" "$RUNNER_TEMP/image-licenses"
+docker rm "$license_container" >/dev/null
+trap - EXIT
+diff -r "$RUNNER_TEMP/license-bundle/licenses" "$RUNNER_TEMP/image-licenses"
+cmp LICENSE "$RUNNER_TEMP/image-licenses/PROJECT-LICENSE"
+cmp NOTICE "$RUNNER_TEMP/image-licenses/PROJECT-NOTICE"
+test -s "$RUNNER_TEMP/image-licenses/GO-LICENSE"
 actual=$(docker run --rm --platform "linux/$ARCH" --read-only --user 65532:65532 --cap-drop ALL --security-opt no-new-privileges --network none "$IMAGE@$IMAGE_DIGEST" version)
 test "$actual" = "${VERSION#v}"
 docker run --rm -i --platform "linux/$ARCH" --read-only --user 65532:65532 --cap-drop ALL --security-opt no-new-privileges --network none "$IMAGE@$IMAGE_DIGEST" validate-config < examples/registry.json
@@ -21,6 +32,8 @@ helm pull "oci://$CHART" --version "${VERSION#v}" --destination "$RUNNER_TEMP/pu
 grep -Fq "$CHART_DIGEST" "$RUNNER_TEMP/chart-pull"
 package="$RUNNER_TEMP/pulled/kube-token-requestor-${VERSION#v}.tgz"
 cmp "$package" "dist/kube-token-requestor-${VERSION#v}.tgz"
+tar -xOf "$package" kube-token-requestor/LICENSE | cmp - LICENSE
+tar -xOf "$package" kube-token-requestor/NOTICE | cmp - NOTICE
 go install sigs.k8s.io/kind@v0.33.0
 cat > "$RUNNER_TEMP/kind.yaml" <<'YAML'
 kind: Cluster
