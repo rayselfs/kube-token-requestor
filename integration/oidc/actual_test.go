@@ -201,6 +201,11 @@ func TestActualKubernetes(t *testing.T) {
 				return identity, client
 			}
 			if attempt == 19 {
+				t.Logf("JWT fixture diagnostics: discovery=%d jwks=%d identityClass=%s", b.discoveryRequests.Load(), b.jwksRequests.Load(), provider.Classify(issue.Identity(ctx, client, cluster, cluster.ExpectedIssuer)))
+				result, reviewErr := admin.AuthenticationV1().TokenReviews().Create(ctx, &auth.TokenReview{Spec: auth.TokenReviewSpec{Token: identity.Bearer}}, meta.CreateOptions{})
+				if reviewErr == nil {
+					t.Logf("actual JWT review: authenticated=%t username=%q groups=%v errorPresent=%t", result.Status.Authenticated, result.Status.User.Username, result.Status.User.Groups, result.Status.Error != "")
+				}
 				t.Fatal("real API rejected the restricted JWT issuer")
 			}
 			time.Sleep(time.Second)

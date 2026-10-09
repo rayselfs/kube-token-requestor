@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	jose "github.com/go-jose/go-jose/v4"
@@ -32,11 +33,13 @@ type Settings struct {
 }
 
 type Broker struct {
-	mu          sync.RWMutex
-	settings    Settings
-	signer      jose.Signer
-	keys        []jose.JSONWebKey
-	subjectLive bool
+	mu                sync.RWMutex
+	settings          Settings
+	signer            jose.Signer
+	keys              []jose.JSONWebKey
+	subjectLive       bool
+	discoveryRequests atomic.Uint64
+	jwksRequests      atomic.Uint64
 }
 
 func New(settings Settings) (*Broker, error) {
@@ -122,10 +125,12 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	keys := append([]jose.JSONWebKey(nil), b.keys...)
 	b.mu.RUnlock()
 	if r.Method == http.MethodGet && r.URL.Path == "/.well-known/openid-configuration" {
+		b.discoveryRequests.Add(1)
 		writeJSON(w, map[string]any{"issuer": settings.Issuer, "jwks_uri": settings.Issuer + "/jwks", "response_types_supported": []string{"id_token"}, "subject_types_supported": []string{"public"}, "id_token_signing_alg_values_supported": []string{"RS256"}})
 		return
 	}
 	if r.Method == http.MethodGet && r.URL.Path == "/jwks" {
+		b.jwksRequests.Add(1)
 		writeJSON(w, jose.JSONWebKeySet{Keys: keys})
 		return
 	}
