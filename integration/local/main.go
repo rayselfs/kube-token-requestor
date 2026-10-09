@@ -62,6 +62,9 @@ func run() error {
 	if *action == "faults" {
 		return faults(*root, *out)
 	}
+	if *action == "management-outage" {
+		return managementOutage(*root, *out)
+	}
 	if *action == "failover" {
 		return failover(*root, *out)
 	}
