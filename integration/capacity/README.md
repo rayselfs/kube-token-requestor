@@ -35,3 +35,18 @@ The owner-dispatch workflow verifies public paired manifest/assets/image/chart s
 running this fixture. Native capacity acceptance currently targets amd64; it does not imply
 arm64 at the same load. Normal Go tests validate PKI and compile the harness while the real API
 profile remains opt-in. An unexecuted or failed profile is never accepted capacity evidence.
+
+## Consumer failure profile
+
+The separate owner-dispatched consumer-failure workflow uses a verified published paired
+release and two independent synthetic child APIs with six actual CA processes. It removes
+only the named affected CA scale patch grant, corrupts only that owned synthetic output,
+and requires durable `StopUnconfirmed` while all five peers renew after the fault and retain
+their ready Pod identities for at least 90 seconds. Restoring the exact grant must stop the
+affected CA, publish a valid restricted replacement, and retain the operator safety latch;
+it must not resume the CA automatically. Deployment and namespace UID guards remain active.
+
+This profile is not capacity acceptance, natural token-lifetime acceptance, or actual VM
+provisioning. It is pending until its sanitized receipt exists for the candidate source.
+The default capacity profile and its requirement for every CA Pod to remain unchanged are
+unaffected. Normal unit runs skip both opt-in live fixture profiles.
