@@ -17,7 +17,8 @@ concurrency:
 
 jobs:
   local-api:
-    if: github.ref == 'refs/heads/main' && github.actor == github.repository_owner
+    # Owner-only synthetic testing may review a branch before merge; no package writes or live credentials.
+    if: startsWith(github.ref, 'refs/heads/') && github.actor == github.repository_owner
     strategy:
       fail-fast: false
       matrix:
