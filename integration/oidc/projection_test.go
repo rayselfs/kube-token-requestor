@@ -43,7 +43,7 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 		t.Fatal("stopped synthetic CA bootstrap failed")
 	}
 	outsideEndpoint := c.Endpoint
-	c.Endpoint = "https://kubernetes.default.svc"
+	c.Endpoint = "https://kubernetes.default.svc:443"
 	c.Provider.AcceptedMinSeconds = 600
 	c.Lifetime.RenewBeforeSeconds = 570
 	consumer := &c.Consumers[0]
