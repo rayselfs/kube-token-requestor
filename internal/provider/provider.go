@@ -102,8 +102,9 @@ func HTTP(ca []byte) (*http.Client, error) {
 		if end < 0 || bytes.Contains(remaining[len("-----BEGIN CERTIFICATE-----"):end], []byte("-----BEGIN ")) {
 			return nil, Trust
 		}
-		block, rest := pem.Decode(remaining)
-		if block == nil || block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+		end += len("-----END CERTIFICATE-----")
+		block, rest := pem.Decode(remaining[:end])
+		if block == nil || len(bytes.TrimSpace(rest)) != 0 || block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
 			return nil, Trust
 		}
 		certificate, err := x509.ParseCertificate(block.Bytes)
@@ -111,7 +112,7 @@ func HTTP(ca []byte) (*http.Client, error) {
 			return nil, Trust
 		}
 		pool.AddCert(certificate)
-		remaining = bytes.TrimSpace(rest)
+		remaining = bytes.TrimSpace(remaining[end:])
 	}
 	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}, Proxy: nil, MaxIdleConns: 8, IdleConnTimeout: 30 * time.Second}
 	return &http.Client{Transport: transport, Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return Trust }}, nil
