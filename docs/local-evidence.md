@@ -83,3 +83,22 @@ projected-volume rotation, actual CA reload through OAuth, vendor integration or
 matrix. The test broker is not part of the released controller. Earlier failed attempts are not
 accepted evidence: the kubeadm v1beta4 patch was skipped by pinned kind for Kubernetes 1.35.8;
 the corrected v1beta3 patch and effective-flag assertion passed fresh complete runs.
+
+## RC5 complete native CA rerun
+
+[Run 37871710423](https://github.com/rayselfs/kube-token-requestor/actions/runs/37871710423)
+passed on native amd64 and arm64 using released source
+`0fb65fa81125806190eeb8279179e5a6aff60601` and harness
+`4894f6c2a8ee343be0b23341c215ca8721466ab5`. Sanitized receipts are
+[integration/evidence/rc5](../integration/evidence/rc5/).
+
+This rerun verified actual named identity/RBAC, two TokenFile rotations in the same CA Pod with
+predecessor rejection, consumer/issuer isolation, a five-minute actual child API partition,
+two StopStart replacements with manual suspension retained, and issuer replacement/revocation.
+The earlier failed RC5 run is not promoted: its observation timer cancelled the API context at
+the final check. The fixed harness retains the 13-minute observation and acceptance requirements.
+
+The policy remains accelerated (600 seconds), the CAPI fleet is empty, and no workers are
+provisioned. These receipts prove neither natural lifetime, 20-child capacity, deployed OAuth,
+receiver/on-call adoption nor complete production acceptance. RC6 distribution is independently
+verified; its corresponding runtime reruns remain separate and pending.
