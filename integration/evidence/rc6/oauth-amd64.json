@@ -1,0 +1,18 @@
+{
+  "controllerVersion": "v0.1.0-rc.6",
+  "sourceCommit": "7884c8a6738692666ccc8c13c132c88f2c62aca5",
+  "harnessCommit": "d788a72040ff15e5f28ca2b1de443da29dfcaa69",
+  "architecture": "amd64",
+  "kubernetes": "1.35.8",
+  "provider": "OAuthTokenExchange",
+  "twoUnchangedReadyControllerPods": true,
+  "boundPodSubjectProjectionRotation": true,
+  "validConsumerPublicationAfterSubjectRotation": true,
+  "stoppedCAUnchanged": true,
+  "rejectedSubjectRecoveryWithoutSecretMutation": true,
+  "unchangedLeaderDuringRecovery": true,
+  "subjectProjectionSeconds": 600,
+  "topology": "synthetic co-located management/child API",
+  "scope": "released controller and actual kubelet projection; no actual CA process or vendor product",
+  "naturalLifetimeAcceptance": false
+}

@@ -2,8 +2,8 @@
 
 Status: M0 delivered; config, SecretIssuer, RFC 8693 exchange, TokenRequest, identity/rights checks and
 output CAS, shared runtime and source chart are implemented. Local two-child/three-consumer
-identity and restricted-RBAC acceptance passed. Paired RC6 delivery passed; earlier RC4 native multi-child/CA tests and the separate real OAuth
-JWT API trust fixture passed. RC6 full CA and deployed OAuth recovery reruns remain pending. Full failure, deployed OAuth projection, capacity, monitoring/adoption and
+identity and restricted-RBAC acceptance passed. Paired RC6 delivery, full native multi-child/CA and deployed OAuth subject-recovery tests passed on
+amd64/arm64. The separate real OAuth JWT API trust fixture also passed. Full failure, capacity, monitoring/adoption and
 long-run acceptance remain pending; these partial results do not claim complete production acceptance.
 Each milestone is a small PR from latest origin/main in an isolated worktree.
 No milestone authorizes a live cluster mutation or automatic production activation.

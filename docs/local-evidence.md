@@ -103,3 +103,30 @@ The policy remains accelerated (600 seconds), the CAPI fleet is empty, and no wo
 provisioned. These receipts prove neither natural lifetime, 20-child capacity, deployed OAuth,
 receiver/on-call adoption nor complete production acceptance. RC6 distribution is independently
 verified; its corresponding runtime reruns remain separate and pending.
+
+## RC6 released runtime receipts
+
+Both native architectures passed [full CA acceptance](https://github.com/rayselfs/kube-token-requestor/actions/runs/37873398641)
+and [deployed OAuth recovery](https://github.com/rayselfs/kube-token-requestor/actions/runs/37873644034).
+All four receipts bind released source `7884c8a6738692666ccc8c13c132c88f2c62aca5`:
+[CA amd64](../integration/evidence/rc6/ca-amd64.json),
+[CA arm64](../integration/evidence/rc6/ca-arm64.json),
+[OAuth amd64](../integration/evidence/rc6/oauth-amd64.json),
+[OAuth arm64](../integration/evidence/rc6/oauth-arm64.json).
+
+The OAuth harness receipt records the actual PR merge SHA, not just its branch head. GitHub
+commit metadata verifies its parents include the reviewed head
+`6d39a58b520526f45417b61b23786f706ef7693c` and main base
+`09758991070fb507413228c39148b1ff65b90ea7`.
+
+OAuth proves actually reviewed same-Pod kubelet JWT replacement and recovery from a rejected
+subject while the Lease holder and both Ready Pod UIDs remain unchanged. Provider Secret UIDs
+and resourceVersions stay unchanged; the CA fixture stays stopped. It uses a synthetic co-located
+API and accelerated 600-second projection, not a vendor product or natural lifetime. The separate
+CA receipt uses two real child APIs, three consumers and actual upstream CA with an empty CAPI
+fleet and accelerated TTL.
+
+All eleven rendered Helm alerts passed promtool firing/recovery profiles in
+[PR 30](https://github.com/rayselfs/kube-token-requestor/pull/30). This is rule evaluation, not
+receiver/on-call delivery. Full failure, 20-child capacity, natural >=48-hour observation and
+operator adoption remain open; these receipts do not declare complete production acceptance.
