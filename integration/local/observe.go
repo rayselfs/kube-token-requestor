@@ -45,7 +45,11 @@ func observeProgress(root, path string, duration time.Duration, progress func(in
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	finishAt := time.Now().Add(duration)
+	finish := time.NewTimer(duration)
+	defer finish.Stop()
+	// Observation completion must not cancel a final in-flight identity/log request.
+	ctx, cancel := context.WithTimeout(context.Background(), duration+time.Minute)
 	defer cancel()
 	c := values.Registry.Clusters[0]
 	consumer := c.Consumers[0]
@@ -79,6 +83,9 @@ func observeProgress(root, path string, duration time.Duration, progress func(in
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {
+		if !time.Now().Before(finishAt) {
+			return finishObservation(rotations, oldRejected)
+		}
 		pods, err := management.CoreV1().Pods(consumer.CADeployment.Namespace).List(ctx, meta.ListOptions{LabelSelector: "app=" + consumer.ID})
 		if err != nil || len(pods.Items) != 1 {
 			return provider.Trust
@@ -131,12 +138,18 @@ func observeProgress(root, path string, duration time.Duration, progress func(in
 		fmt.Printf("local rotation observation: rotations=%d samePod=true restrictedAPI=true oldTokenRejected=%t\n", rotations, oldRejected)
 		select {
 		case <-ctx.Done():
-			if rotations < 2 || !oldRejected {
-				return provider.Trust
-			}
-			fmt.Println("local TokenFile acceptance passed: two rotations, old token rejected, same ready CA Pod")
-			return nil
+			return provider.Transport
+		case <-finish.C:
+			return finishObservation(rotations, oldRejected)
 		case <-ticker.C:
 		}
 	}
+}
+
+func finishObservation(rotations int, oldRejected bool) error {
+	if rotations < 2 || !oldRejected {
+		return provider.Trust
+	}
+	fmt.Println("local TokenFile acceptance passed: two rotations, old token rejected, same ready CA Pod")
+	return nil
 }
