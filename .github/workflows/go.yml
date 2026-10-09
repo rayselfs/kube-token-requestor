@@ -37,6 +37,7 @@ jobs:
       - run: bash -n scripts/release-smoke.sh
       - run: bash -n scripts/local-acceptance.sh
       - run: bash -n scripts/oauth-projection.sh
+      - run: bash -n scripts/capacity-acceptance.sh
       - run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
       - run: govulncheck ./...
       - run: helm lint charts/kube-token-requestor
