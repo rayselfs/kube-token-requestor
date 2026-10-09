@@ -90,7 +90,8 @@ the corrected v1beta3 patch and effective-flag assertion passed fresh complete r
 passed on native amd64 and arm64 using released source
 `0fb65fa81125806190eeb8279179e5a6aff60601` and harness
 `4894f6c2a8ee343be0b23341c215ca8721466ab5`. Sanitized receipts are
-[integration/evidence/rc5](../integration/evidence/rc5/).
+[amd64 receipt](../integration/evidence/rc5/amd64.json) and
+[arm64 receipt](../integration/evidence/rc5/arm64.json).
 
 This rerun verified actual named identity/RBAC, two TokenFile rotations in the same CA Pod with
 predecessor rejection, consumer/issuer isolation, a five-minute actual child API partition,
