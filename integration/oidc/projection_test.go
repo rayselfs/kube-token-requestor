@@ -69,6 +69,15 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 		t.Fatal("synthetic stopped chart installation failed")
 	}
 	name := "projection-kube-token-requestor"
+	rendered, err := client.CoreV1().ConfigMaps("requestor-test").Get(ctx, name+"-registry", meta.GetOptions{})
+	if err != nil {
+		t.Fatal("installed registry read failed")
+	}
+	parsed, err := config.Parse(strings.NewReader(rendered.Data["registry.json"]))
+	if err != nil || parsed.ManagementUID != c.KubeSystemUID {
+		t.Fatal("installed registry rejected before activation")
+	}
+	t.Log("installed registry accepted by runtime parser with pinned management identity")
 	sa, err := client.CoreV1().ServiceAccounts("requestor-test").Get(ctx, name, meta.GetOptions{})
 	if err != nil || broker.BindProjectedSubject("system:serviceaccount:requestor-test:"+name, string(sa.UID)) != nil {
 		t.Fatal("synthetic projected subject enrollment failed")
