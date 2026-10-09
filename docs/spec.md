@@ -58,6 +58,9 @@ shared. SecretIssuer's long-lived material is replaced by the operator's rotatio
 OAuthTokenExchange refresh means reacquiring via exchange, not renewing a CA JWT in place.
 Provider errors MUST be classified as retryable transport/rate-limit, configuration/trust,
 authentication/authorization or bootstrap-required. Response bodies MUST NOT enter errors.
+Trust bundles MUST contain only valid `CERTIFICATE` PEM blocks separated by whitespace.
+Reject private keys, PEM headers, malformed certificates and unrelated leading/trailing content
+before acquisition or copying trust bytes into consumer Secrets.
 
 ### 2.1 SecretIssuer
 

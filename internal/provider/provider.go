@@ -1,9 +1,11 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"time"
@@ -86,8 +88,26 @@ func ReadSecret(ctx context.Context, client kubernetes.Interface, ref config.Ref
 
 func HTTP(ca []byte) (*http.Client, error) {
 	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(ca) {
+	remaining := bytes.TrimSpace(ca)
+	if len(remaining) == 0 {
 		return nil, Trust
+	}
+	for len(remaining) > 0 {
+		// PEM decoding otherwise skips unrelated material that would be copied
+		// unchanged into consumer trust bundles.
+		if !bytes.HasPrefix(remaining, []byte("-----BEGIN CERTIFICATE-----")) {
+			return nil, Trust
+		}
+		block, rest := pem.Decode(remaining)
+		if block == nil || block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+			return nil, Trust
+		}
+		certificate, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, Trust
+		}
+		pool.AddCert(certificate)
+		remaining = bytes.TrimSpace(rest)
 	}
 	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}, Proxy: nil, MaxIdleConns: 8, IdleConnTimeout: 30 * time.Second}
 	return &http.Client{Transport: transport, Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return Trust }}, nil
