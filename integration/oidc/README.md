@@ -48,7 +48,8 @@ Pod. Require at least two additional valid CA publications after observing subje
 confirm the CA fixture stays at zero. After the first healthy publication, reject the currently
 reviewed subject hash until kubelet replaces it. Require BootstrapRequired to be observed, only
 one exchange with that unchanged rejected subject, and valid post-rotation publication without
-changing provider Secret UIDs or resourceVersions. Token bytes/signing keys stay in memory or API Secrets;
+changing provider Secret UIDs or resourceVersions. Pin the same Lease holder throughout recovery
+to exclude failover resetting an authentication cache. Token bytes/signing keys stay in memory or API Secrets;
 the observer exports no projected file or credential payload.
 
 `scripts/oauth-projection.sh` verifies the published manifest/assets/image/chart before testing,

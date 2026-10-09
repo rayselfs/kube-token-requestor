@@ -49,7 +49,7 @@ json.dump({'controllerVersion':m['controllerVersion'], 'sourceCommit':m['sourceC
            'harnessCommit':os.environ['GITHUB_SHA'], 'architecture':{'x86_64':'amd64', 'aarch64':'arm64'}[platform.machine()],
            'kubernetes':'1.35.8', 'provider':'OAuthTokenExchange',
            'twoUnchangedReadyControllerPods':True, 'boundPodSubjectProjectionRotation':True,
-           'validConsumerPublicationAfterSubjectRotation':True, 'stoppedCAUnchanged':True, 'rejectedSubjectRecoveryWithoutSecretMutation':True,
+           'validConsumerPublicationAfterSubjectRotation':True, 'stoppedCAUnchanged':True, 'rejectedSubjectRecoveryWithoutSecretMutation':True, 'unchangedLeaderDuringRecovery':True,
            'subjectProjectionSeconds':600, 'topology':'synthetic co-located management/child API',
            'scope':'released controller and actual kubelet projection; no actual CA process or vendor product',
            'naturalLifetimeAcceptance':False}, open(sys.argv[2], 'w'), indent=2)

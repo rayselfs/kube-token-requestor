@@ -150,6 +150,7 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 	rotated, readySeen := false, false
 	publicationAtRotation := 0
 	rejectionArmed, rejectionSeen := false, false
+	recoveryHolder := ""
 	deadline := time.Now().Add(12 * time.Minute)
 	for time.Now().Before(deadline) && ctx.Err() == nil {
 		pods, err := client.CoreV1().Pods("requestor-test").List(ctx, meta.ListOptions{LabelSelector: "app.kubernetes.io/instance=projection,app.kubernetes.io/name=kube-token-requestor"})
@@ -216,7 +217,18 @@ func deployedProjection(t *testing.T, ctx context.Context, client kubernetes.Int
 				publications++
 			}
 		}
+		if rejectionArmed {
+			lease, err := client.CoordinationV1().Leases("requestor-test").Get(ctx, name, meta.GetOptions{})
+			if err != nil || lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity != recoveryHolder {
+				t.Fatal("OAuth recovery leader changed; cache recovery not proven")
+			}
+		}
 		if readySeen && publications >= 1 && !rejectionArmed {
+			lease, err := client.CoordinationV1().Leases("requestor-test").Get(ctx, name, meta.GetOptions{})
+			if err != nil || lease.Spec.HolderIdentity == nil || !initialPods[types.UID(*lease.Spec.HolderIdentity)] {
+				t.Fatal("OAuth recovery leader not pinned to observed Pod")
+			}
+			recoveryHolder = *lease.Spec.HolderIdentity
 			broker.rejectProjectedOnce()
 			rejectionArmed = true
 		}
