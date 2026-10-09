@@ -65,6 +65,12 @@ receiver are never chart values or repository content. ServiceMonitor/Prometheus
 alone is not acceptance: force each essential failure, confirm receiver delivery, investigate via
 runbook and confirm recovery/latched-stop behavior. Metrics scrape path must be access-controlled.
 
+CI evaluates firing and recovery for all eleven rendered alert rules with pinned promtool.
+It separately submits those sanitized rule labels and annotations through upstream Alertmanager
+0.34.1's alert API to a loopback webhook and verifies every firing and resolved notification.
+This covers rule evaluation and the notification transport in synthetic fixtures; it does not
+claim a live Prometheus scrape chain or an installation-specific on-call owner's acceptance.
+
 ## Ownership and runbooks
 
 Every enrollment MUST identify an owning team in the operator's inventory, issuer rotation owner,
