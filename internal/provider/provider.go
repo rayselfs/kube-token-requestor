@@ -98,6 +98,10 @@ func HTTP(ca []byte) (*http.Client, error) {
 		if !bytes.HasPrefix(remaining, []byte("-----BEGIN CERTIFICATE-----")) {
 			return nil, Trust
 		}
+		end := bytes.Index(remaining, []byte("-----END CERTIFICATE-----"))
+		if end < 0 || bytes.Contains(remaining[len("-----BEGIN CERTIFICATE-----"):end], []byte("-----BEGIN ")) {
+			return nil, Trust
+		}
 		block, rest := pem.Decode(remaining)
 		if block == nil || block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
 			return nil, Trust

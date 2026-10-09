@@ -13,13 +13,14 @@ func TestTrustBundleContainsOnlyPublicCertificates(t *testing.T) {
 	certificate := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
 	canary := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("synthetic-private-material-canary")})
 	rejected := map[string][]byte{
-		"trailing private key": append(append([]byte{}, certificate...), canary...),
-		"leading private key":  append(append([]byte{}, canary...), certificate...),
-		"trailing content":     append(append([]byte{}, certificate...), []byte("unexpected trailing content")...),
-		"leading content":      append([]byte("unexpected leading content"), certificate...),
-		"invalid certificate":  pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("invalid DER")}),
-		"PEM headers":          pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Headers: map[string]string{"Comment": "unexpected metadata"}, Bytes: server.Certificate().Raw}),
-		"empty":                nil,
+		"skipped malformed block": append([]byte("-----BEGIN CERTIFICATE-----\ninvalid\n"), certificate...),
+		"trailing private key":    append(append([]byte{}, certificate...), canary...),
+		"leading private key":     append(append([]byte{}, canary...), certificate...),
+		"trailing content":        append(append([]byte{}, certificate...), []byte("unexpected trailing content")...),
+		"leading content":         append([]byte("unexpected leading content"), certificate...),
+		"invalid certificate":     pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("invalid DER")}),
+		"PEM headers":             pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Headers: map[string]string{"Comment": "unexpected metadata"}, Bytes: server.Certificate().Raw}),
+		"empty":                   nil,
 	}
 	for name, input := range rejected {
 		t.Run(name, func(t *testing.T) {
