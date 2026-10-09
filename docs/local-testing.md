@@ -16,6 +16,10 @@ from registry outputs and pass it explicitly; synthetic stopped-image hashes are
 - `bootstrap`: create exact synthetic identities/grants, two child issuer sources, three owned
   output Secrets and three stopped CA fixtures; generate non-secret Helm values. It requires
   fresh local clusters and does not overwrite existing resources.
+- `failover`: delete only the actual UID-pinned synthetic leader Pod, verify a new holder on the
+  same Lease and two ready controller Pods within 90 seconds, then confirm all three outputs
+  renew without expiry rollback and the durable status and actual CA Pod retain their UIDs.
+  This tests real Pod/Lease failover; node loss and instruction-level crash injection are separate.
 - `assert`: validate three distinct issued tokens using actual child API identities/UIDs and
   issuer/consumer effective rules and allowed/denied permissions. CA fixtures must remain stopped.
 - `rights`: the same read-only identity and permission checks with active CA fixtures allowed.

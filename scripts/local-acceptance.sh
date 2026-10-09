@@ -66,6 +66,7 @@ helm --kube-context kind-requestor-management --kubeconfig "$root/kubeconfigs/ma
 "${base[@]}" scale deployment/child-a-ca-one --replicas=1
 "${base[@]}" rollout status deployment/child-a-ca-one --timeout=3m
 "$root/harness" --action observe --duration 13m "${args[@]}"
+"$root/harness" --action failover "${args[@]}"
 "$root/harness" --action faults "${args[@]}"
 "$root/harness" --action partition "${args[@]}"
 "$root/harness" --action stop-start "${args[@]}"
@@ -78,6 +79,7 @@ json.dump({'controllerVersion':m['controllerVersion'], 'sourceCommit':m['sourceC
            'managementKubernetes':'1.35.8', 'childKubernetes':'1.35.8',
            'clusterAutoscaler':'1.35.2', 'provider':'SecretIssuer', 'reloadPolicy':'TokenFile',
            'realIdentityAndRBAC':True, 'sameCAPodTwoRotationsOldTokenRejected':True,
+           'actualLeaderLossAndLeaseFailover':True,
            'issuerAndStoppedConsumerIsolation':True, 'fiveMinuteActualChildAPIPartition':True,
            'stopStartTwoReplacementsAndManualSuspension':True,
            'issuerReplacementAndPredecessorRevocation':True, 'scope':'synthetic empty CAPI fleet',
