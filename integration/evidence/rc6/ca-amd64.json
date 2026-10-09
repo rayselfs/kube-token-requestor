@@ -1,0 +1,20 @@
+{
+  "controllerVersion": "v0.1.0-rc.6",
+  "sourceCommit": "7884c8a6738692666ccc8c13c132c88f2c62aca5",
+  "harnessCommit": "09758991070fb507413228c39148b1ff65b90ea7",
+  "architecture": "amd64",
+  "managementKubernetes": "1.35.8",
+  "childKubernetes": "1.35.8",
+  "clusterAutoscaler": "1.35.2",
+  "provider": "SecretIssuer",
+  "reloadPolicy": "TokenFile",
+  "realIdentityAndRBAC": true,
+  "sameCAPodTwoRotationsOldTokenRejected": true,
+  "issuerAndStoppedConsumerIsolation": true,
+  "fiveMinuteActualChildAPIPartition": true,
+  "stopStartTwoReplacementsAndManualSuspension": true,
+  "issuerReplacementAndPredecessorRevocation": true,
+  "scope": "synthetic empty CAPI fleet",
+  "acceleratedLifetimeSeconds": 600,
+  "naturalLifetimeAcceptance": false
+}

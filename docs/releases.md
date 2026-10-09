@@ -14,8 +14,12 @@ Always use the signed manifest to obtain the complete platform/package pins.
 
 RC6 includes strict public-CA parsing, bounded HA startup status-conflict retries and OAuth
 recovery when a rejected projected subject is replaced by kubelet. Regression tests cover those
-fixes. Released-image OAuth recovery and full CA reruns remain pending; distribution smoke does
-not prove these behaviors. Earlier release bytes and evidence remain immutable. RC6 supersedes
+fixes. Both released-image runtime reruns subsequently passed on native amd64 and arm64:
+[full CA/partition/recovery](https://github.com/rayselfs/kube-token-requestor/actions/runs/37873398641)
+and [deployed OAuth projection/recovery](https://github.com/rayselfs/kube-token-requestor/actions/runs/37873644034).
+OAuth recovery retained the same leader/two Ready Pods and source Secret identities/versions.
+The CA receipt includes actual old-token rejection, the five-minute API outage, StopStart/manual
+suspension and issuer recovery. Distribution smoke alone does not prove these behaviors. Earlier release bytes and evidence remain immutable. RC6 supersedes
 RC2/RC4/RC5 for new acceptance testing; no natural-lifetime, capacity or operator-adoption gate
 has been declared passed.
 
