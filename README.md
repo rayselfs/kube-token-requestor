@@ -15,6 +15,7 @@ HA. Enrollment is explicit; the service does not discover clusters or adopt admi
 
 - [Normative specification](docs/spec.md)
 - [Implementation plan and acceptance gates](docs/implementation-plan.md)
+- [Acceptance evidence and remaining gaps](docs/acceptance-status.md)
 - [Monitoring and operations](docs/operations.md)
 - [GitHub image/chart releases and compatibility matrix](docs/releases.md)
 - [Disabled, synthetic multi-cluster example](examples/registry.json)
