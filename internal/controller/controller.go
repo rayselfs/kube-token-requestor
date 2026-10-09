@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -197,7 +198,11 @@ func (r *runtime) reload(call, parent context.Context) error {
 		err = r.transition(call, parsed)
 	}
 	if err == nil {
-		err = r.engine.Store.Update(call, func(s *status.Snapshot) error { s.Generation = generation; return nil })
+		// Independent HA processes can initialize the same status object concurrently.
+		// Re-read pinned state for each bounded CAS attempt; never retry rejected trust.
+		err = retry.OnError(retry.DefaultRetry, func(err error) bool { return err == provider.Conflict }, func() error {
+			return r.engine.Store.Update(call, func(s *status.Snapshot) error { s.Generation = generation; return nil })
+		})
 	}
 	r.valid = err == nil
 	r.metrics.Valid.Store(r.valid)
@@ -215,6 +220,9 @@ func (r *runtime) reload(call, parent context.Context) error {
 		}
 		r.metrics.Targets.Store(count)
 	} else if r.registry == nil {
+		if err == provider.Conflict {
+			return err
+		}
 		return provider.Trust
 	}
 	r.ctx, r.cancel = context.WithCancel(parent)

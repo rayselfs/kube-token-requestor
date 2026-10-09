@@ -2,7 +2,8 @@
 
 This is a management-cluster service. It does not install child identities, discover workloads,
 change node pools or grant child RBAC. Installation and activation are separate operations.
-The first published candidate is `v0.1.0-rc.2`; no production acceptance is implied by it.
+Published candidates are experimental; a public package does not imply production acceptance.
+Check [release evidence and limitations](releases.md) before selecting a version.
 
 Review the separate [child bootstrap example](../bootstrap/README.md) for exact issuer/consumer
 rights and secure credential preparation. It is not applied by Helm or the controller.
@@ -14,11 +15,9 @@ checksums, the source commit and platform digest. Two schedulable management nod
 by hard Pod anti-affinity. Supply explicit API/broker/DNS egress and monitoring ingress rules;
 NetworkPolicy enforcement must be verified on the operator's CNI.
 
-For experimental acceptance, use the candidate's signed manifest and documented limits instead
-of claiming an accepted production row. RC2's index digest is
-`sha256:1c89a768bf18ecafffb6be237bd1fc49da090c00a81a5286881fc624508636b4`.
-Its OCI chart digest is
-`sha256:d610860a2ceaefa53deec7ff29140d5af9c662a3dffef5394d7b72fd59a5f017`.
+For experimental acceptance, use the selected candidate's signed manifest and documented limits
+instead of claiming an accepted production row. Resolve image/chart digests from that manifest;
+do not copy a predecessor's digest from an old example. RC2 is superseded for new testing.
 Download the release's signed manifest/bundle and chart package. With pinned cosign v3.1.3:
 
 ```sh

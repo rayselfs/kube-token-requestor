@@ -13,7 +13,14 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-type throttledProvider struct{ calls int }
+type throttledProvider struct {
+	calls    int
+	revision string
+}
+
+func (p *throttledProvider) InputRevision(context.Context, config.Cluster) (string, error) {
+	return p.revision, nil
+}
 
 func (p *throttledProvider) Acquire(context.Context, config.Cluster) (provider.IssuerCredential, error) {
 	p.calls++
@@ -28,6 +35,7 @@ func TestSafetyWakeDoesNotBypassIssuerRetryAfter(t *testing.T) {
 	c := config.Cluster{ID: "child", Enabled: &enabled, Provider: config.Provider{Type: "OAuthTokenExchange"}}
 	_ = e.Slice(context.Background(), c, "generation", 0, true)
 	now = now.Add(5 * time.Second)
+	p.revision = "new-projected-subject"
 	_ = e.Slice(context.Background(), c, "generation", 0, true)
 	if p.calls != 1 {
 		t.Fatal("safety wake bypassed provider throttle")

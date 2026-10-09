@@ -101,7 +101,10 @@ excessive lifetime, error responses and malformed bearer values. No URL/query cr
 Trust Secret keys are exactly `ca.crt` (broker TLS) and `api-ca.crt` (pinned workload API trust);
 the client Secret contains exactly `client-secret`. Client secrets MUST NOT be sent to discovery/JWKS
 endpoints or logged. Basic auth is only for the
-pinned token endpoint. The subject JWT is reread on each exchange; never cached past expiry.
+pinned token endpoint. The subject JWT is reread on each exchange; never cached past expiry. Authentication-failure
+caching MUST include its current private fingerprint so a new projected JWT can be evaluated
+without an unrelated Secret mutation. Automatic subject rotation MUST NOT bypass a broker
+Retry-After deadline; keep that budget bound to the reviewed registry/Secret inputs.
 Use projected-volume JWT with a dedicated broker audience; it is not the default API token.
 Its mount path MUST match an explicitly rendered volume, with no subPath or arbitrary file reads.
 
