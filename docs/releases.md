@@ -1,7 +1,23 @@
 # GitHub release and compatibility contract
 
-Status: `v0.1.0-rc.4` is published with public signed image/chart and native platform/Helm smoke.
+Status: `v0.1.0-rc.6` is published with public signed image/chart and native platform/Helm smoke.
 The support status is experimental; its accepted production matrix remains empty.
+
+RC6 binds source `7884c8a6738692666ccc8c13c132c88f2c62aca5`. Its complete
+[paired release workflow](https://github.com/rayselfs/kube-token-requestor/actions/runs/37872614541)
+passed native amd64/arm64 anonymous pulls, signatures, startup, full license-text comparison and
+retained-state Helm installation, upgrade, uninstall and reinstall. All release checksums and the
+manifest/image/chart signatures were independently verified locally against the exact workflow
+identity. The image index is `sha256:14250ee246c76f102691b2ca354d485cae729c67f029a4f2320093d2972226ed`;
+the chart OCI digest is `sha256:29ef5ea8c364a02c759422eaa8b9cf53cb244d430b6815043a40a53e5ad53957`.
+Always use the signed manifest to obtain the complete platform/package pins.
+
+RC6 includes strict public-CA parsing, bounded HA startup status-conflict retries and OAuth
+recovery when a rejected projected subject is replaced by kubelet. Regression tests cover those
+fixes. Released-image OAuth recovery and full CA reruns remain pending; distribution smoke does
+not prove these behaviors. Earlier release bytes and evidence remain immutable. RC6 supersedes
+RC2/RC4/RC5 for new acceptance testing; no natural-lifetime, capacity or operator-adoption gate
+has been declared passed.
 
 RC4 binds source `cb84745db90a88c4430f4c15f6a6a4c50e81a00c`. The complete
 [paired release workflow](https://github.com/rayselfs/kube-token-requestor/actions/runs/37862977110)
@@ -18,7 +34,7 @@ accelerated 600-second policy and the CAPI fleet was empty: this proves neither 
 acceptance nor node provisioning. Full failure/capacity/monitoring/adoption gates remain open.
 
 RC2 is superseded for new acceptance testing. Its original artifacts/evidence below remain
-immutable; RC4 includes lifecycle/RBAC hardening and current HTTP dependency security fixes.
+immutable; later candidates include lifecycle/RBAC hardening and HTTP dependency security fixes.
 
 RC2 binds source `36a37434498a6f084f4c862509e1971ef6668a7e`. Both native platforms passed anonymous
 pulls, signature verification, startup and retained-state Helm install/upgrade/uninstall/reinstall

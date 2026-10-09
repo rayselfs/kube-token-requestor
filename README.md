@@ -4,7 +4,7 @@ A shared Kubernetes credential controller designed to issue and distribute short
 ServiceAccount tokens to multiple Cluster Autoscalers across multiple workload clusters.
 
 **Status: experimental paired release available; production acceptance pending.**
-[v0.1.0-rc.4](https://github.com/rayselfs/kube-token-requestor/releases/tag/v0.1.0-rc.4) includes
+[v0.1.0-rc.6](https://github.com/rayselfs/kube-token-requestor/releases/tag/v0.1.0-rc.6) includes
 public multiarchitecture image/OCI chart, signatures, SBOMs, full license texts and native Helm lifecycle evidence.
 It is available for reviewed acceptance testing; no stable production matrix is accepted yet.
 
