@@ -4,8 +4,8 @@ A shared Kubernetes credential controller designed to issue and distribute short
 ServiceAccount tokens to multiple Cluster Autoscalers across multiple workload clusters.
 
 **Status: experimental paired release available; production acceptance pending.**
-[v0.1.0-rc.2](https://github.com/rayselfs/kube-token-requestor/releases/tag/v0.1.0-rc.2) includes
-public multiarchitecture image/OCI chart, signatures, SBOMs and native Helm lifecycle evidence.
+[v0.1.0-rc.4](https://github.com/rayselfs/kube-token-requestor/releases/tag/v0.1.0-rc.4) includes
+public multiarchitecture image/OCI chart, signatures, SBOMs, full license texts and native Helm lifecycle evidence.
 It is available for reviewed acceptance testing; no stable production matrix is accepted yet.
 
 One Deployment serves all enrolled clusters and consumers. Two replicas provide leader-elected
@@ -63,7 +63,8 @@ python3 scripts/check-spec.py
 python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
 
-The checks validate documentation links and the synthetic example, not runtime security.
+Specification checks validate documentation links and the synthetic example. Unit/race checks
+cover implementation behavior; these commands alone do not establish production acceptance.
 
 ## License
 
