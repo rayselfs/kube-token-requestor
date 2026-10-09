@@ -1,0 +1,21 @@
+{
+  "acceleratedLifetimeSeconds": 1200,
+  "actualUnchangedCAPods": 60,
+  "architecture": "amd64",
+  "capacity20Acceptance": true,
+  "clusterAutoscaler": "1.35.2",
+  "controllerVersion": "v0.1.0-rc.6",
+  "everyConsumerRotatedTwice": true,
+  "failedChildRecoveredWithinSafetyBudget": true,
+  "fiveMinuteActualAPIOutage": true,
+  "fourControllerWorkers": true,
+  "harnessCommit": "1187255a01304e95e06bd14bca62fe4e3fcc4f98",
+  "healthyChildrenRemainedServiceable": true,
+  "independentChildAPIs": 20,
+  "kubernetes": "1.35.8",
+  "naturalLifetimeAcceptance": false,
+  "provider": "SecretIssuer",
+  "reloadPolicy": "TokenFile",
+  "scope": "synthetic independent API stores/signers; empty CAPI fleet",
+  "sourceCommit": "7884c8a6738692666ccc8c13c132c88f2c62aca5"
+}

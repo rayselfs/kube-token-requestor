@@ -20,8 +20,13 @@ and [deployed OAuth projection/recovery](https://github.com/rayselfs/kube-token-
 OAuth recovery retained the same leader/two Ready Pods and source Secret identities/versions.
 The CA receipt includes actual old-token rejection, the five-minute API outage, StopStart/manual
 suspension and issuer recovery. Distribution smoke alone does not prove these behaviors. Earlier release bytes and evidence remain immutable. RC6 supersedes
-RC2/RC4/RC5 for new acceptance testing; no natural-lifetime, capacity or operator-adoption gate
-has been declared passed.
+RC2/RC4/RC5 for new acceptance testing. Subsequent
+[native leader-loss acceptance](https://github.com/rayselfs/kube-token-requestor/actions/runs/37879593151)
+passed in 32.1 seconds on both architectures, and
+[twenty-independent-API/sixty-CA capacity](https://github.com/rayselfs/kube-token-requestor/actions/runs/37879854148)
+passed on amd64 with actual five-minute API loss and recovery. Original receipts and scope
+limits are recorded in [local evidence](local-evidence.md). Natural lifetime, complete failure,
+live scrape/on-call and operator adoption remain unaccepted.
 
 RC4 binds source `cb84745db90a88c4430f4c15f6a6a4c50e81a00c`. The complete
 [paired release workflow](https://github.com/rayselfs/kube-token-requestor/actions/runs/37862977110)

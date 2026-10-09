@@ -101,8 +101,8 @@ the final check. The fixed harness retains the 13-minute observation and accepta
 
 The policy remains accelerated (600 seconds), the CAPI fleet is empty, and no workers are
 provisioned. These receipts prove neither natural lifetime, 20-child capacity, deployed OAuth,
-receiver/on-call adoption nor complete production acceptance. RC6 distribution is independently
-verified; its corresponding runtime reruns remain separate and pending.
+receiver/on-call adoption nor complete production acceptance. At this RC5 snapshot, RC6
+distribution was verified and its runtime reruns were pending; the later RC6 results follow.
 
 ## RC6 released runtime receipts
 
@@ -128,5 +128,45 @@ fleet and accelerated TTL.
 
 All eleven rendered Helm alerts passed promtool firing/recovery profiles in
 [PR 30](https://github.com/rayselfs/kube-token-requestor/pull/30). This is rule evaluation, not
-receiver/on-call delivery. Full failure, 20-child capacity, natural >=48-hour observation and
+receiver/on-call delivery. At this initial RC6 snapshot, full failure, 20-child capacity, natural >=48-hour observation and
 operator adoption remain open; these receipts do not declare complete production acceptance.
+
+## RC6 actual leader-loss acceptance
+
+[Run 37879593151](https://github.com/rayselfs/kube-token-requestor/actions/runs/37879593151)
+passed the complete CA profile plus actual leader Pod deletion on native amd64 and arm64.
+Both logs measured Lease failover at 32.1 seconds, below the 90-second acceptance budget.
+The same Lease/status and Deployment identities remained; all three outputs renewed without
+expiry rollback and the actual CA Pod retained its UID without restarts. The subsequent outage,
+StopStart/manual-suspension and issuer revocation drills also passed.
+
+Original sanitized receipts are [failover amd64](../integration/evidence/rc6/ca-failover-amd64.json)
+and [failover arm64](../integration/evidence/rc6/ca-failover-arm64.json). Both bind controller source
+`7884c8a6738692666ccc8c13c132c88f2c62aca5` and actual owner-dispatched harness
+`2b950a2784717a780c076a2e088b9b3553f7646c`. This is Pod/Lease failover on synthetic empty CAPI
+clusters, not node loss, instruction-level deployed crash injection or natural lifetime.
+
+All eleven alerts also passed firing/resolved notification delivery through pinned upstream
+Alertmanager to an isolated loopback receiver in [PR 35](https://github.com/rayselfs/kube-token-requestor/pull/35).
+That does not accept a live scrape chain or an installation-specific on-call recipient.
+
+## RC6 independent API capacity acceptance
+
+[Run 37879854148](https://github.com/rayselfs/kube-token-requestor/actions/runs/37879854148)
+passed on a fresh amd64 Linux runner with twenty actual independent Kubernetes 1.35.8 APIs
+and sixty actual upstream CA 1.35.2 Pods. APIs have distinct signing keys, storage prefixes and
+kube-system identities; they share an in-memory fixture datastore process. This is not twenty
+namespaces aliased to one API or a twenty-node provisioning test.
+
+Every independent consumer rotated at least twice with the same Ready CA Pod and no restarts.
+Deleting one guarded child API Pod caused five full minutes of actual API loss; its publication
+froze after bounded in-flight drainage while all nineteen healthy children remained serviceable.
+The failed child recovered within the three-minute recovery budget, with existing CA Deployment
+and Pod identities retained. Real identity/effective-RBAC checks passed after recovery.
+
+The [original capacity receipt](../integration/evidence/rc6/capacity-20-amd64.json) binds controller
+source `7884c8a6738692666ccc8c13c132c88f2c62aca5` and owner-dispatched harness
+`1187255a01304e95e06bd14bca62fe4e3fcc4f98`. Controller worker count and API rate limits were not
+changed. The [profile](../integration/capacity/README.md) uses an accelerated 1200-second TTL,
+an empty read-only CAPI fleet and no node/VM provisioning. It does not claim arm64 capacity,
+natural-lifetime observation, complete fault acceptance or operator adoption.
