@@ -170,7 +170,19 @@ func failover(root, path string) error {
 	if err != nil || len(active.Items) != 1 || string(active.Items[0].UID) != caUID || len(active.Items[0].Status.ContainerStatuses) != 1 || !active.Items[0].Status.ContainerStatuses[0].Ready || active.Items[0].Status.ContainerStatuses[0].RestartCount != 0 {
 		return provider.Trust
 	}
-	if err := assert(root, path, true); err != nil {
+	for _, cluster := range values.Registry.Clusters {
+		for _, consumer := range cluster.Consumers {
+			d, err := management.AppsV1().Deployments(consumer.CADeployment.Namespace).Get(ctx, consumer.CADeployment.Name, meta.GetOptions{})
+			want := int32(0)
+			if consumer.ID == "child-a-ca-one" {
+				want = 1
+			}
+			if err != nil || string(d.UID) != consumer.CADeployment.UID || d.Spec.Replicas == nil || *d.Spec.Replicas != want {
+				return provider.Trust
+			}
+		}
+	}
+	if err := assert(root, path, false); err != nil {
 		return err
 	}
 	fmt.Printf("synthetic leader loss passed: failover within %.1fs, all three outputs renewed without expiry rollback, durable state and actual CA Pod retained\n", failoverSeconds)
