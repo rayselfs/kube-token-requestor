@@ -56,6 +56,9 @@ func run() error {
 	if *action == "revoke-issuer" {
 		return revokeIssuer(*root, *out)
 	}
+	if *action == "partition" {
+		return partition(*root, *out)
+	}
 	if *action == "faults" {
 		return faults(*root, *out)
 	}
