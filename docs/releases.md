@@ -1,7 +1,19 @@
 # GitHub release and compatibility contract
 
-Status: `v0.1.0-rc.6` is published with public signed image/chart and native platform/Helm smoke.
-The support status is experimental; its accepted production matrix remains empty.
+Status: formal `v0.1.0` is published with public signed image/chart and native platform/Helm smoke.
+The support status is production-unvalidated; its accepted production matrix remains empty.
+
+The [v0.1.0 release](https://github.com/rayselfs/kube-token-requestor/releases/tag/v0.1.0)
+binds source `0053930edfc6e50844a971a6e972a42aae6bb70b`. The
+[paired release workflow](https://github.com/rayselfs/kube-token-requestor/actions/runs/38209494952)
+passed source CI gates, race tests, vulnerability scans, SBOM/license packaging, signatures and
+native amd64/arm64 anonymous pull, startup and Helm install/upgrade/uninstall/reinstall smoke.
+Its signed manifest records exact image/platform/chart digests. These distribution checks do
+not claim credential handoff, natural-lifetime monitoring or production adoption acceptance.
+The package version is 0.1.0 and the image tag is v0.1.0; prefer the manifest's digest pins.
+Subsequent fixes use new immutable paired patch releases, never replacement of v0.1.0 bytes.
+
+## Previous candidate evidence
 
 RC6 binds source `7884c8a6738692666ccc8c13c132c88f2c62aca5`. Its complete
 [paired release workflow](https://github.com/rayselfs/kube-token-requestor/actions/runs/37872614541)
