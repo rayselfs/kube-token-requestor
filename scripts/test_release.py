@@ -6,8 +6,11 @@ class ReleaseGates(unittest.TestCase):
   def test_prerelease_does_not_claim_acceptance(self):
     self.assertEqual(release.gate('v0.1.0-rc.1', 'a'*40), 'experimental')
 
-  def test_stable_rejects_absent_or_incomplete_acceptance(self):
-    for evidence in [None, {}, {'sourceCommit': 'a'*40, 'version': 'v0.1.0',
+  def test_formal_version_without_evidence_does_not_claim_acceptance(self):
+    self.assertEqual(release.gate('v0.1.0', 'a'*40), 'production-unvalidated')
+
+  def test_supplied_incomplete_acceptance_is_rejected(self):
+    for evidence in [{}, {'sourceCommit': 'a'*40, 'version': 'v0.1.0',
                    'observationHours': 48, 'naturalRotations': 2}]:
       with self.assertRaises(ValueError):
         release.gate('v0.1.0', 'a'*40, evidence)
@@ -60,6 +63,11 @@ class ManifestChecks(unittest.TestCase):
       self.assertEqual(result['supportStatus'], 'experimental')
       self.assertEqual(set(result['image']['platformDigests']), {'linux/amd64', 'linux/arm64'})
       self.assertEqual(result['acceptedMatrix'], [])
+      (root/'kube-token-requestor-0.1.0-rc.1.tgz').rename(root/'kube-token-requestor-0.1.0.tgz')
+      formal = release.manifest('v0.1.0', *args[1:], index, root)
+      self.assertEqual(formal['supportStatus'], 'production-unvalidated')
+      self.assertEqual(formal['acceptedMatrix'], [])
+      (root/'kube-token-requestor-0.1.0.tgz').rename(root/'kube-token-requestor-0.1.0-rc.1.tgz')
       self.assertEqual(result['assets']['licenses.csv']['sha256'], release.sha(root/'licenses.csv'))
       self.assertEqual(result['assets']['licenses.tgz']['sha256'], release.sha(root/'licenses.tgz'))
       (root/'licenses.tgz').unlink()

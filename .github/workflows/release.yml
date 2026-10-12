@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Exact version (for example v0.1.0-rc.1); stable requires accepted evidence'
+        description: 'Exact version (for example v0.1.0); publication does not imply production acceptance'
         required: true
         type: string
       acceptance_artifact_id:
-        description: 'Required for stable: owner-approved report artifact from this exact main commit'
+        description: 'Optional production acceptance report artifact from this exact main commit'
         required: false
         default: ''
         type: string
@@ -45,7 +45,7 @@ jobs:
           set -euo pipefail
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           args=()
-          if [[ "$VERSION" != *-rc.* ]]; then
+          if [[ -n "$ACCEPTANCE_ID" ]]; then
             python scripts/acceptance.py --id "$ACCEPTANCE_ID" --repository "$GITHUB_REPOSITORY" --version "$VERSION" --commit "$GITHUB_SHA" --out "$RUNNER_TEMP/acceptance.json"
             args=(--evidence "$RUNNER_TEMP/acceptance.json")
           fi
@@ -181,7 +181,7 @@ jobs:
           cosign sign --yes --bundle dist/chart.sigstore.json "$CHART@$CHART_DIGEST"
           docker buildx imagetools inspect "$IMAGE@$IMAGE_DIGEST" --raw > "$RUNNER_TEMP/image-index.json"
           args=()
-          if [[ "$VERSION" != *-rc.* ]]; then
+          if [[ -n "$ACCEPTANCE_ID" ]]; then
             python scripts/acceptance.py --id "$ACCEPTANCE_ID" --repository "$GITHUB_REPOSITORY" --version "$VERSION" --commit "$GITHUB_SHA" --out "$RUNNER_TEMP/acceptance.json"
             args=(--evidence "$RUNNER_TEMP/acceptance.json")
           fi
@@ -268,4 +268,4 @@ jobs:
           gh release upload "$VERSION" dist/* --repo "$GITHUB_REPOSITORY"
           prerelease=true
           if [[ "$VERSION" != *-rc.* ]]; then prerelease=false; fi
-          gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease="$prerelease" --title "$VERSION" --notes 'Verified paired image/chart with native amd64/arm64 anonymous pulls, signatures, SPDX SBOMs and Helm install/upgrade/uninstall/reinstall smoke. See release-manifest.json for exact source/digests and support status. Experimental RC artifacts do not claim production acceptance or authorize external deployment.'
+          gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease="$prerelease" --title "$VERSION" --notes 'Verified paired image/chart with native amd64/arm64 anonymous pulls, signatures, SPDX SBOMs and Helm install/upgrade/uninstall/reinstall smoke. See release-manifest.json for exact source/digests and support status. A formal version is a distribution release, not a production acceptance claim. Without an accepted report, supportStatus is production-unvalidated and acceptedMatrix is empty. Publication authorizes no external deployment; fixes use new immutable patch versions.'

@@ -24,7 +24,8 @@ def gate(version, commit, evidence=None):
   require(COMMIT.fullmatch(commit), 'Source commit must be a full Git commit')
   if '-rc.' in version:
     return 'experimental'
-  require(evidence is not None, 'Stable publication requires accepted production evidence')
+  if evidence is None:
+    return 'production-unvalidated'
   require(set(evidence) == {'sourceCommit', 'version', 'observationHours', 'naturalRotations',
                 'ownerApproval', 'alertDeliveryAccepted', 'acceptedMatrix', 'scenarios'},
       'Acceptance report has unknown or missing fields')
@@ -33,12 +34,12 @@ def gate(version, commit, evidence=None):
   require(type(evidence.get('observationHours')) in (int, float) and
       math.isfinite(evidence['observationHours']) and evidence['observationHours'] >= 48 and
       type(evidence.get('naturalRotations')) is int and evidence['naturalRotations'] >= 2,
-      'Stable publication requires natural-lifetime observation')
+      'Production acceptance requires natural-lifetime observation')
   require(isinstance(evidence.get('ownerApproval'), str) and
       re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9-]{0,38}', evidence['ownerApproval']) and
       evidence.get('alertDeliveryAccepted') is True,
-      'Stable publication requires owner approval and alert delivery')
-  require(evidence.get('acceptedMatrix'), 'Stable publication requires an accepted matrix')
+      'Production acceptance requires owner approval and alert delivery')
+  require(evidence.get('acceptedMatrix'), 'Production acceptance requires an accepted matrix')
   for row in evidence['acceptedMatrix']:
     require(isinstance(row, dict) and set(row) == {'managementKubernetes', 'childKubernetes',
         'clusterAutoscaler', 'caImageDigest', 'provider', 'reloadPolicy', 'architectures',
@@ -124,6 +125,8 @@ def main():
   args = parser.parse_args()
   require(VERSION.fullmatch(args.version), "Invalid version")
   evidence = json.loads(args.evidence.read_text()) if args.evidence else None
+  if args.evidence:
+    require(isinstance(evidence, dict), 'Supplied acceptance report must be an object')
   if args.action == 'gate':
     print(gate(args.version, args.commit, evidence))
     return

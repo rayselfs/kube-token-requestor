@@ -27,6 +27,6 @@ class AcceptanceArchive(unittest.TestCase):
       acceptance.extract(self.metadata(), self.archive('../acceptance.json'), 'v0.1.0', 'a'*40)
 
   def test_archive_cannot_bypass_stable_gate(self):
-    with self.assertRaises(ValueError):
-      acceptance.extract(self.metadata(), self.archive(content=json.dumps({'sourceCommit': 'a'*40}).encode()),
-                 'v0.1.0', 'a'*40)
+    for content in [b'null', json.dumps({'sourceCommit': 'a'*40}).encode()]:
+      with self.assertRaises(ValueError):
+        acceptance.extract(self.metadata(), self.archive(content=content), 'v0.1.0', 'a'*40)

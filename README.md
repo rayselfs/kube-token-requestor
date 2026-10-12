@@ -8,6 +8,11 @@ ServiceAccount tokens to multiple Cluster Autoscalers across multiple workload c
 public multiarchitecture image/OCI chart, signatures, SBOMs, full license texts and native Helm lifecycle evidence.
 It is available for reviewed acceptance testing; no stable production matrix is accepted yet.
 
+Formal versions such as `v0.1.0` can be published before production adoption. They retain all
+artifact/security/smoke checks and declare `supportStatus: production-unvalidated` with an empty
+accepted matrix until an owner-reviewed acceptance report is available. Versioned image/chart
+bytes are immutable; subsequent fixes use new patch versions. See the [release policy](docs/releases.md).
+
 One Deployment serves all enrolled clusters and consumers. Two replicas provide leader-elected
 HA. Enrollment is explicit; the service does not discover clusters or adopt admin kubeconfigs.
 

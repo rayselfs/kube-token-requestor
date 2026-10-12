@@ -42,7 +42,11 @@ unless a concrete need remains unmet by client-go. No CRD/webhook/database is ne
 | M4 Delivery | Hardened image, complete Helm chart, metrics/alerts/runbooks | Helm combinations, monitoring smoke and install/upgrade/uninstall tests |
 | M5 Release candidate | Signed/digest-pinned image and OCI chart through GitHub | Release manifest/SBOM/checksums, OCI pull/install and negative promotion gates |
 | M6 First real adoption | Candidate resources, sole-writer handoff and real CA evidence | >=48h, two natural rotations, old-token-expiry and rollback evidence |
-| M7 Stable release | Accepted provider/version matrix and on-call readiness | All mandatory acceptance rows; production approval recorded |
+| M7 Production acceptance | Accepted provider/version matrix and on-call readiness | All mandatory acceptance rows; production approval recorded |
+
+Formal SemVer publication may precede M6/M7 after the complete paired artifact, security and
+native smoke gates pass. Its manifest declares production-unvalidated until M7 evidence exists;
+publication alone does not authorize deployment or imply production acceptance.
 
 M2 MUST produce working protocol implementation, not a stub. Test an exchange server which
 validates projected subject identity and audience, and a real workload API that authenticates
