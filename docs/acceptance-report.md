@@ -1,6 +1,6 @@
-# Stable acceptance record
+# Production acceptance record
 
-Stable publication consumes an immutable GitHub Actions artifact, not a mutable file on main.
+Production acceptance consumes an immutable GitHub Actions artifact, not a mutable file on main.
 This avoids asking an evidence document to contain the Git SHA of its own commit. The owner runs
 `Record owner-approved production acceptance` on the exact main commit after actual acceptance.
 It validates the sanitized JSON and produces `production-acceptance-vX.Y.Z`; pass the resulting
@@ -30,4 +30,6 @@ credentials and private deployment inventory.
 
 Owner recording is an explicit review declaration. It does not run tests or turn an untested
 scenario into evidence. The release job verifies source/version/schema binding and reported gates;
-reviewers still assess the linked actual evidence. No current record meets these stable gates.
+reviewers still assess the linked actual evidence. No current record meets these acceptance gates.
+This report is optional for formal version publication; omitting it keeps the release explicitly
+production-unvalidated. Supplying an incomplete or invalid report always fails publication.

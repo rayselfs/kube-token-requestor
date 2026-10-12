@@ -78,8 +78,9 @@ is an explicit owner choice and may not automatically follow source visibility.
 
 Controller SemVer `vX.Y.Z`; initial chart version `X.Y.Z`, appVersion `X.Y.Z` in lockstep. Config
 schemaVersion is separately tracked; breaking schema change requires explicit migration and a
-major controller version once stable. Pre-1.0 releases are explicitly preproduction/prerelease
-until complete evidence supports stated production use. Chart and image tags are immutable;
+major controller version once stable. Formal versions and production acceptance are separate:
+`vX.Y.Z` is a non-prerelease distribution, while `vX.Y.Z-rc.N` is an experimental candidate.
+Neither version format alone claims production acceptance. Chart and image tags are immutable;
 Helm values use the released image digest rather than `latest` or a floating tag.
 
 A release MUST pair source commit, image/index/platform digests, chart digest and matrix evidence.
@@ -131,7 +132,8 @@ fixtures are labeled; private evidence references do not publish private cluster
 4. Verify registry pull by digest, chart pull/install on isolated clusters, image startup and exact
    pairing. Generate checksums/release manifest and sign image/chart digests with auditable identity.
 5. Upload assets to a DRAFT GitHub Release. Promote only after mandatory acceptance, review and
-   approval; stable promotion requires real adoption/monitoring evidence. A tag alone is not success.
+   approval. Production acceptance additionally requires real adoption/monitoring evidence.
+   A tag alone is not a successful paired publication or an acceptance claim.
 
 Pin third-party Actions by commit. No release jobs on pull_request_target/untrusted fork code.
 Least-privilege contents:write/packages:write/id-token:write scoped only to needed jobs; ordinary
@@ -165,23 +167,28 @@ The final job publishes only after both platforms pass image/signature and compl
 checks. Failed publication remains draft; rerun failed jobs from the same run rather than rebuilding
 or replacing versioned bytes. Use a corrective version when source/artifact bytes change.
 
-A stable version requires a separate owner-approved acceptance artifact bound to the same main
-commit. Dispatch `Record owner-approved production acceptance` with the sanitized report, then
+A production-accepted release requires a separate owner-approved acceptance artifact bound to
+the same main commit. Dispatch `Record owner-approved production acceptance` with the sanitized report, then
 pass its immutable numeric artifact ID to the release workflow. Metadata must prove the version,
 exact main SHA and unexpired artifact; report contents require all A01–A24 evidence, >=48 hours,
 >=2 natural rotations, actual alert delivery and the owner's identity. Evidence references point
 only to sanitized records in this public repository; no private endpoints/inventory belong in the
 report. The report lives outside source so its commit binding has no circular self-reference.
 
-Only `vX.Y.Z-rc.N` can publish without stable evidence; its manifest is explicitly experimental
-with no accepted matrix rows. An RC is deployable for reviewed acceptance, not a production claim.
+Both version formats may publish without a production report after all paired build, vulnerability,
+signature and native distribution/Helm lifecycle checks pass. Without a report, a formal release
+declares `supportStatus: production-unvalidated`; an RC declares `experimental`. Both have an
+empty `acceptedMatrix`. An optional report is validated strictly against the exact source/version;
+invalid or incomplete supplied evidence fails publication rather than being ignored. Installation,
+credential handoff and activation remain separately reviewed operations. Fixes publish new paired
+patch versions such as `v0.1.1` or `v0.1.2`; existing tags and artifacts are never overwritten.
 Package visibility must allow anonymous native pull; public source visibility alone is insufficient.
 
 ## Initial repository delivery
 
 This commit publishes M0 documents, synthetic example and spec CI only. No v0.1.0 tag, image,
 chart, placeholder release workflow or production badge is created. Real publication starts at
-M5 after executable implementation and checks exist; stable release requires M7 evidence.
+M5 after executable implementation and checks exist; production acceptance requires M7 evidence.
 
 ## References
 

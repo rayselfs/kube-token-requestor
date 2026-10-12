@@ -23,7 +23,7 @@ def extract(metadata, archive, version, commit):
     require(bundle.getinfo('acceptance.json').file_size <= 1 << 20, 'Acceptance report too large')
     data = bundle.read('acceptance.json')
   evidence = json.loads(data)
-  gate(version, commit, evidence)
+  require(gate(version, commit, evidence) == 'accepted', 'Report must prove production acceptance')
   return data
 
 
