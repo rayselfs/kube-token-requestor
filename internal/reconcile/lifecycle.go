@@ -3,6 +3,7 @@ package reconcile
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/rayselfs/kube-token-requestor/internal/config"
@@ -21,8 +22,28 @@ func deployment(ctx context.Context, client kubernetes.Interface, consumer confi
 	if err != nil {
 		return nil, provider.Classify(err)
 	}
-	if string(d.UID) != consumer.CADeployment.UID || d.Spec.Replicas == nil || *d.Spec.Replicas > 1 || len(d.Spec.Template.Spec.Containers) != 1 {
+	limit := consumer.CADeployment.ReplicaLimit()
+	if string(d.UID) != consumer.CADeployment.UID || d.Spec.Replicas == nil || *d.Spec.Replicas < 0 || *d.Spec.Replicas > limit || limit < 1 || limit > 2 || len(d.Spec.Template.Spec.Containers) != 1 {
 		return nil, provider.Trust
+	}
+	if limit == 2 {
+		lease := consumer.LeaderElectionLease
+		if lease == nil || consumer.PermissionProfile != "ca-read-events-lease" {
+			return nil, provider.Trust
+		}
+		args := d.Spec.Template.Spec.Containers[0].Args
+		for _, required := range []string{"--leader-elect=true", "--leader-elect-resource-lock=leases", "--leader-elect-resource-name=" + lease.Name, "--namespace=" + lease.Namespace} {
+			count, found := 0, false
+			for _, arg := range args {
+				if strings.SplitN(arg, "=", 2)[0] == strings.SplitN(required, "=", 2)[0] {
+					count++
+					found = arg == required
+				}
+			}
+			if count != 1 || !found {
+				return nil, provider.Trust
+			}
+		}
 	}
 	image := d.Spec.Template.Spec.Containers[0].Image
 	if len(image) < len(consumer.CADeployment.ImageDigest)+1 || image[len(image)-len(consumer.CADeployment.ImageDigest)-1:] != "@"+consumer.CADeployment.ImageDigest {
@@ -57,6 +78,10 @@ func mounted(d *apps.Deployment, consumer config.Consumer) bool {
 }
 
 func scale(ctx context.Context, client kubernetes.Interface, consumer config.Consumer, from, to int32) error {
+	limit := consumer.CADeployment.ReplicaLimit()
+	if limit < 1 || limit > 2 || from < 0 || from > limit || to < 0 || to > limit {
+		return provider.Trust
+	}
 	s, err := client.AppsV1().Deployments(consumer.CADeployment.Namespace).GetScale(ctx, consumer.CADeployment.Name, meta.GetOptions{})
 	if err != nil {
 		return provider.Classify(err)
@@ -112,8 +137,8 @@ func (e *Engine) stop(ctx context.Context, consumer config.Consumer, entry *stat
 	if err != nil {
 		return err
 	}
-	if *d.Spec.Replicas == 1 {
-		if err := scale(ctx, e.Management, consumer, 1, 0); err != nil {
+	if *d.Spec.Replicas > 0 {
+		if err := scale(ctx, e.Management, consumer, *d.Spec.Replicas, 0); err != nil {
 			return err
 		}
 	}
@@ -133,7 +158,7 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 		}
 	}
 	intent := entry.Intent
-	if intent == nil || intent.Generation != generation || intent.DeploymentUID != consumer.CADeployment.UID || intent.Replicas != 1 ||
+	if intent == nil || intent.Generation != generation || intent.DeploymentUID != consumer.CADeployment.UID || intent.Replicas < 1 || intent.Replicas > consumer.CADeployment.ReplicaLimit() ||
 		entry.StopLatched || intent.Phase != "Published" || !intent.CandidateExpiry.After(e.Now().Add(5*time.Minute)) {
 		return provider.Trust
 	}
@@ -154,7 +179,7 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 		}
 	}
 	if *d.Spec.Replicas == 0 {
-		if err := scale(ctx, e.Management, consumer, 0, 1); err != nil {
+		if err := scale(ctx, e.Management, consumer, 0, intent.Replicas); err != nil {
 			if err == provider.Conflict {
 				current, readErr := deployment(ctx, e.Management, consumer)
 				if readErr != nil {
@@ -177,10 +202,10 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 		if err != nil {
 			return err
 		}
-		if *current.Spec.Replicas != 1 {
+		if *current.Spec.Replicas != intent.Replicas {
 			return e.cancelRestart(ctx, consumer, entry)
 		}
-		if current.Status.ObservedGeneration >= current.Generation && current.Status.ReadyReplicas == 1 {
+		if current.Status.ObservedGeneration >= current.Generation && current.Status.ReadyReplicas == intent.Replicas {
 			break
 		}
 		select {
@@ -197,8 +222,8 @@ func (e *Engine) resume(ctx context.Context, consumer config.Consumer, entry *st
 // failures keep durable intent for crash recovery; operators disable the consumer to suspend it.
 func (e *Engine) stopRenewal(ctx context.Context, consumer config.Consumer, entry *status.Consumer, replicas int32) error {
 	var err error
-	if replicas == 1 {
-		err = scale(ctx, e.Management, consumer, 1, 0)
+	if replicas > 0 {
+		err = scale(ctx, e.Management, consumer, replicas, 0)
 	}
 	if err == nil {
 		err = stopped(ctx, e.Management, consumer)
@@ -210,7 +235,7 @@ func (e *Engine) stopRenewal(ctx context.Context, consumer config.Consumer, entr
 	if readErr != nil {
 		return readErr
 	}
-	if *current.Spec.Replicas == 1 {
+	if *current.Spec.Replicas > 0 {
 		return provider.Conflict
 	}
 	return e.cancelRestart(ctx, consumer, entry)

@@ -64,6 +64,14 @@ type Deployment struct {
 	Name        string `json:"name"`
 	UID         string `json:"uid"`
 	ImageDigest string `json:"imageDigest"`
+	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
+}
+
+func (d Deployment) ReplicaLimit() int32 {
+	if d.MaxReplicas == nil {
+		return 1
+	}
+	return *d.MaxReplicas
 }
 
 type Lifetime struct {
@@ -76,13 +84,14 @@ type Lifetime struct {
 }
 
 type Consumer struct {
-	ID                string         `json:"id"`
-	Enabled           *bool          `json:"enabled"`
-	ServiceAccount    ServiceAccount `json:"serviceAccount"`
-	Secret            Ref            `json:"secret"`
-	CADeployment      Deployment     `json:"caDeployment"`
-	ReloadPolicy      string         `json:"reloadPolicy"`
-	PermissionProfile string         `json:"permissionProfile"`
+	ID                  string         `json:"id"`
+	Enabled             *bool          `json:"enabled"`
+	ServiceAccount      ServiceAccount `json:"serviceAccount"`
+	Secret              Ref            `json:"secret"`
+	CADeployment        Deployment     `json:"caDeployment"`
+	ReloadPolicy        string         `json:"reloadPolicy"`
+	PermissionProfile   string         `json:"permissionProfile"`
+	LeaderElectionLease *Ref           `json:"leaderElectionLease,omitempty"`
 }
 
 // Provider is decoded as a discriminated union; validate rejects fields from another mode.
@@ -242,6 +251,9 @@ func exactFields(value any, typ reflect.Type) bool {
 		}
 		for key, item := range fields {
 			fieldType, known := allowed[key]
+			if item == nil && (typ == reflect.TypeOf(Deployment{}) && key == "maxReplicas" || typ == reflect.TypeOf(Consumer{}) && key == "leaderElectionLease") {
+				return false
+			}
 			if !known || !exactFields(item, fieldType) {
 				return false
 			}
@@ -254,7 +266,7 @@ func exactFields(value any, typ reflect.Type) bool {
 		if _, ok := value.(bool); !ok {
 			return false
 		}
-	case reflect.Int, reflect.Int64:
+	case reflect.Int, reflect.Int32, reflect.Int64:
 		if _, ok := value.(float64); !ok {
 			return false
 		}
@@ -412,8 +424,16 @@ func (r *Registry) Validate() error {
 			if !name(consumer.ID) || ids[consumer.ID] || !consumer.ServiceAccount.valid() || saIDs[saKey] || !ref.valid() ||
 				outputRefs[key] || sourceRefs[key] != "" || !name(dep.Namespace) || !objectName(dep.Name) || !identity(dep.UID) ||
 				ref.Namespace != dep.Namespace || deployments[depKey] || !strings.HasPrefix(dep.ImageDigest, "sha256:") || !hashPattern.MatchString(strings.TrimPrefix(dep.ImageDigest, "sha256:")) ||
-				(consumer.ReloadPolicy != "TokenFile" && consumer.ReloadPolicy != "StopStart") || consumer.PermissionProfile != "ca-read-events" ||
+				(consumer.ReloadPolicy != "TokenFile" && consumer.ReloadPolicy != "StopStart") ||
 				(consumer.Enabled == nil || (*consumer.Enabled && !*c.Enabled)) {
+				return ErrInvalid
+			}
+			lease := consumer.LeaderElectionLease
+			if dep.ReplicaLimit() < 1 || dep.ReplicaLimit() > 2 ||
+				(consumer.PermissionProfile == "ca-read-events" && lease != nil) ||
+				(consumer.PermissionProfile == "ca-read-events-lease" && (lease == nil || !lease.valid() || lease.Namespace != c.IdentityNamespace)) ||
+				(consumer.PermissionProfile != "ca-read-events" && consumer.PermissionProfile != "ca-read-events-lease") ||
+				(dep.ReplicaLimit() == 2 && consumer.PermissionProfile != "ca-read-events-lease") {
 				return ErrInvalid
 			}
 			ids[consumer.ID], outputRefs[key], saIDs[saKey], deployments[depKey] = true, true, true, true

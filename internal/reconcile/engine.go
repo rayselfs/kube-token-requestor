@@ -126,7 +126,7 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 			preflightFailures[consumer.ID] = depErr
 			continue
 		}
-		if *d.Spec.Replicas == 1 {
+		if *d.Spec.Replicas > 0 {
 			entry.Expiry = expires
 			if err := e.stop(ctx, consumer, &entry, "SafetyStopped"); err != nil {
 				entry.Condition = "StopUnconfirmed"
@@ -303,13 +303,13 @@ func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config
 	if e.expiries == nil {
 		e.expiries = map[string]time.Time{}
 	}
-	if *d.Spec.Replicas == 1 {
+	if *d.Spec.Replicas > 0 {
 		e.expiries[consumer.ID] = expires
 	} else {
 		delete(e.expiries, consumer.ID)
 	}
 	e.mu.Unlock()
-	if *d.Spec.Replicas == 1 && !mounted(d, consumer) {
+	if *d.Spec.Replicas > 0 && !mounted(d, consumer) {
 		return provider.Trust
 	}
 	// A persisted restart belongs to one policy/generation and deployment only.
@@ -336,19 +336,19 @@ func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config
 			if err := e.save(ctx, consumer.ID, &entry); err != nil {
 				return err
 			}
-		} else if *d.Spec.Replicas == 1 {
+		} else if *d.Spec.Replicas > 0 {
 			return e.stop(ctx, consumer, &entry, "SafetyStopped")
 		}
 	}
 	if !enabled {
-		if unsafe && *d.Spec.Replicas == 1 {
+		if unsafe && *d.Spec.Replicas > 0 {
 			return e.stop(ctx, consumer, &entry, "SafetyStopped")
 		}
 		return nil
 	}
 	if acquisition != nil {
 		entry.Condition = provider.Classify(acquisition).Error()
-		if unsafe && *d.Spec.Replicas == 1 {
+		if unsafe && *d.Spec.Replicas > 0 {
 			if err := e.stop(ctx, consumer, &entry, "SafetyStopped"); err != nil {
 				entry.Condition = "StopUnconfirmed"
 				_ = e.save(ctx, consumer.ID, &entry)
@@ -400,18 +400,18 @@ func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config
 		e.Event("token", c.ID, consumer.ID, outcome)
 	}
 	if err != nil {
-		if unsafe && *d.Spec.Replicas == 1 {
+		if unsafe && *d.Spec.Replicas > 0 {
 			_ = e.stop(ctx, consumer, &entry, "SafetyStopped")
 		}
 		return err
 	}
-	if consumer.ReloadPolicy == "StopStart" && !entry.StopLatched && (*d.Spec.Replicas == 1 || entry.Intent != nil) {
+	if consumer.ReloadPolicy == "StopStart" && !entry.StopLatched && (*d.Spec.Replicas > 0 || entry.Intent != nil) {
 		if entry.Intent == nil {
 			id := make([]byte, 16)
 			if _, err := rand.Read(id); err != nil {
 				return provider.Transport
 			}
-			entry.Intent = &status.Intent{Operation: hex.EncodeToString(id), Generation: generation, DeploymentUID: consumer.CADeployment.UID, Replicas: 1, CandidateExpiry: candidate.Expires, Phase: "Stopping"}
+			entry.Intent = &status.Intent{Operation: hex.EncodeToString(id), Generation: generation, DeploymentUID: consumer.CADeployment.UID, Replicas: *d.Spec.Replicas, CandidateExpiry: candidate.Expires, Phase: "Stopping"}
 		} else if entry.Intent.Generation != generation || entry.Intent.DeploymentUID != consumer.CADeployment.UID {
 			return provider.Trust
 		} else {

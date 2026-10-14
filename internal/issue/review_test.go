@@ -62,3 +62,37 @@ func TestEffectivePermissionBoundaries(t *testing.T) {
 		})
 	}
 }
+
+func TestNamedLeasePermissionsRequireOptIn(t *testing.T) {
+	consumer := config.Consumer{PermissionProfile: "ca-read-events-lease", LeaderElectionLease: &config.Ref{Namespace: "identity", Name: "ca-leader", UID: "lease-uid"}}
+	for _, mode := range []string{"get", "update", "create", "delete", "patch", "list", "foreign", "unnamed", "legacy", "issuer"} {
+		t.Run(mode, func(t *testing.T) {
+			item := consumer
+			verb, names := mode, []string{"ca-leader"}
+			if mode == "foreign" {
+				verb, names = "update", []string{"other"}
+			}
+			if mode == "unnamed" {
+				verb, names = "update", nil
+			}
+			if mode == "legacy" {
+				verb, item.PermissionProfile = "update", "ca-read-events"
+			}
+			if mode == "issuer" {
+				verb = "update"
+			}
+			client := fake.NewClientset()
+			client.PrependReactor("create", "selfsubjectrulesreviews", func(kt.Action) (bool, runtime.Object, error) {
+				return true, &authz.SelfSubjectRulesReview{Status: authz.SubjectRulesReviewStatus{ResourceRules: []authz.ResourceRule{{APIGroups: []string{"coordination.k8s.io"}, Resources: []string{"leases"}, Verbs: []string{verb}, ResourceNames: names}}}}, nil
+			})
+			var candidate = &item
+			if mode == "issuer" {
+				candidate = nil
+			}
+			err := reviewPermissions(context.Background(), client, config.Cluster{IdentityNamespace: "identity"}, candidate)
+			if (err == nil) != (mode == "get" || mode == "update") {
+				t.Fatal("unexpected Lease authority accepted")
+			}
+		})
+	}
+}

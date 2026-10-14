@@ -144,6 +144,37 @@ func ValidateConsumer(ctx context.Context, client kubernetes.Interface, c config
 	if err := NamedSA(ctx, client, c.IdentityNamespace, consumer.ServiceAccount); err != nil {
 		return err
 	}
+	if lease := consumer.LeaderElectionLease; lease != nil {
+		if lease.Namespace != c.IdentityNamespace || consumer.PermissionProfile != "ca-read-events-lease" {
+			return provider.Trust
+		}
+		object, err := client.CoordinationV1().Leases(lease.Namespace).Get(ctx, lease.Name, meta.GetOptions{})
+		if err != nil {
+			return provider.Classify(err)
+		}
+		if string(object.UID) != lease.UID {
+			return provider.Trust
+		}
+		otherName, otherNamespace := "token-requestor-deny-probe", "kube-system"
+		if lease.Name == otherName {
+			otherName += "-other"
+		}
+		if lease.Namespace == otherNamespace {
+			otherNamespace = "default"
+		}
+		for _, check := range []struct {
+			verb, name, namespace string
+			allowed               bool
+		}{
+			{"get", lease.Name, lease.Namespace, true}, {"update", lease.Name, lease.Namespace, true},
+			{"create", lease.Name, lease.Namespace, false}, {"delete", lease.Name, lease.Namespace, false},
+			{"update", otherName, lease.Namespace, false}, {"update", lease.Name, otherNamespace, false},
+		} {
+			if err := Permission(ctx, client, authz.ResourceAttributes{Group: "coordination.k8s.io", Resource: "leases", Verb: check.verb, Name: check.name, Namespace: check.namespace}, check.allowed); err != nil {
+				return err
+			}
+		}
+	}
 	for _, resource := range []authz.ResourceAttributes{
 		{Verb: "list", Resource: "nodes"}, {Verb: "list", Resource: "pods"}, {Verb: "list", Resource: "services"},
 		{Verb: "list", Group: "apps", Resource: "daemonsets"}, {Verb: "list", Group: "policy", Resource: "poddisruptionbudgets"},
