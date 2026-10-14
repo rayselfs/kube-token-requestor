@@ -263,7 +263,12 @@ BEFORE stopping. Only an explicitly bounded running CA can be stopped/restarted.
 canonical, unique --leader-elect=true, --leader-elect-resource-lock=leases,
 --leader-elect-resource-name=<declared Lease name> and --namespace=<declared child namespace>
 arguments on the pinned CA container. Persist/restore the actual initial count, not the maximum. CAS /scale UID/RV,
-wait for actual Deployment status replicas zero, publish/readback, then resume only matching intent.
+wait for observed Deployment status replicas AND terminatingReplicas zero, publish/readback,
+then resume only matching intent. StopStart requires explicit termination accounting on the
+management API; absent terminatingReplicas MUST fail closed before normal issuance or publication.
+An operator-stopped consumer must meet the same barrier before publication. Kubernetes 1.35+
+enables DeploymentReplicaSetTerminatingReplicas by default; older APIs require that capability
+to be explicitly available. The controller MUST NOT enable feature gates or broaden RBAC.
 If intent persistence fails, do not stop. Recovery revalidates candidate expiry and identity.
 Never start an already stopped CA. Exclude HPA/other scale writers and require suspension before
 manual intervention: RV cannot reveal manual intent when replicas remain the same.

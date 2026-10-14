@@ -346,6 +346,20 @@ func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config
 		}
 		return nil
 	}
+	if consumer.ReloadPolicy == "StopStart" {
+		if d.Status.TerminatingReplicas == nil {
+			if unsafe && *d.Spec.Replicas > 0 {
+				return e.stop(ctx, consumer, &entry, "StopUnconfirmed")
+			}
+			return provider.Trust
+		}
+		// An operator-stopped consumer must also finish terminating before publication.
+		if *d.Spec.Replicas == 0 && entry.Intent == nil {
+			if err := stopped(ctx, e.Management, consumer); err != nil {
+				return err
+			}
+		}
+	}
 	if acquisition != nil {
 		entry.Condition = provider.Classify(acquisition).Error()
 		if unsafe && *d.Spec.Replicas > 0 {
