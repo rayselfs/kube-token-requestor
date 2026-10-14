@@ -129,3 +129,32 @@ silently falling back to admin credentials or resetting workers.
 Require receiver-delivered failure/recovery tests, standby/missing-leader tests, long-lived issuer
 rotation/revocation drill, OAuth trust/client-secret rotation, stale/missing telemetry, stop-not-
 confirmed behavior and >=48h observation. No secrets may appear in captured telemetry/evidence.
+
+## HA CA consumers
+
+The controller's own two-Pod HA is separate from a CA consumer's replica count.
+The default CA bound remains one; existing registries keep their existing authority.
+For an explicitly enrolled HA CA set `caDeployment.maxReplicas: 2`, select
+`permissionProfile: ca-read-events-lease` and declare `leaderElectionLease` with
+namespace/name/UID. The Lease must be in the child identity namespace, precreated
+by the operator, with only named get/update rights for that consumer ServiceAccount.
+No automatic Lease or RBAC creation is performed.
+
+The CA container must have exactly one canonical value for each election flag:
+`--leader-elect=true`, `--leader-elect-resource-lock=leases`,
+`--leader-elect-resource-name=<lease name>`, `--namespace=<lease namespace>`.
+The replica bound does not activate CA or force it to two. StopStart persists the
+original running count and restores only that matching intent; zero stays zero.
+Safety stops stop every approved replica. Independent scale writers remain excluded.
+
+A stopped candidate sharing a child identity with an external HA CA can opt into
+only the Lease permission profile, keeping its default one-replica bound and zero
+actual replicas. That candidate still has no authority over the external Deployment.
+Changing profiles/configuration or upgrading binaries does not authorize active
+writer handoff. Legacy binaries reject these optional fields; review rollout and
+rollback together with the registry. Do not downgrade a two-replica enrollment to
+a singleton-only binary while its safety/restart intent remains active.
+
+Unit/fake-client tests cover trust and lifecycle decisions; live named-Lease RBAC,
+real multi-Pod reload, fault recovery and natural rotations remain deployment
+acceptance requirements. No new production support row is implied by this change.

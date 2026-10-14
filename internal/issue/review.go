@@ -53,6 +53,10 @@ func reviewPermissions(ctx context.Context, client kubernetes.Interface, c confi
 						allowed = namedOnly(rule.ResourceNames, accounts)
 					}
 					if consumer != nil {
+						if lease := consumer.LeaderElectionLease; lease != nil && consumer.PermissionProfile == "ca-read-events-lease" &&
+							group == "coordination.k8s.io" && resource == "leases" && (verb == "get" || verb == "update") {
+							allowed = namedOnly(rule.ResourceNames, []string{lease.Name})
+						}
 						if group == "" && resource == "events" && (verb == "create" || verb == "patch") {
 							allowed = true
 						}

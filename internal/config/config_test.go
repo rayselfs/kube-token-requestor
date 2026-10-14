@@ -168,3 +168,37 @@ func FuzzParse(f *testing.F) {
 		}
 	})
 }
+
+func TestHAEnrollmentIsExplicitAndBounded(t *testing.T) {
+	for _, mode := range []string{"valid", "candidate", "missing-lease", "legacy-profile", "wrong-namespace", "zero", "three", "null"} {
+		t.Run(mode, func(t *testing.T) {
+			v := fixture(t)
+			item := consumer(v, 0)
+			dep := item["caDeployment"].(map[string]any)
+			dep["maxReplicas"] = 2
+			item["permissionProfile"] = "ca-read-events-lease"
+			item["leaderElectionLease"] = map[string]any{"namespace": cluster(v, 0)["identityNamespace"], "name": "ca-leader", "uid": "10000000-0000-4000-8000-000000000099"}
+			switch mode {
+			case "candidate":
+				delete(dep, "maxReplicas")
+			case "missing-lease":
+				delete(item, "leaderElectionLease")
+			case "legacy-profile":
+				item["permissionProfile"] = "ca-read-events"
+			case "wrong-namespace":
+				item["leaderElectionLease"].(map[string]any)["namespace"] = "other"
+			case "zero":
+				dep["maxReplicas"] = 0
+			case "three":
+				dep["maxReplicas"] = 3
+			case "null":
+				dep["maxReplicas"] = nil
+			}
+			data, _ := json.Marshal(v)
+			_, err := Parse(bytes.NewReader(data))
+			if (err == nil) != (mode == "valid" || mode == "candidate") {
+				t.Fatal("HA declaration boundary incorrect")
+			}
+		})
+	}
+}

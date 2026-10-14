@@ -10,9 +10,11 @@ import (
 	"github.com/rayselfs/kube-token-requestor/internal/testutil"
 	auth "k8s.io/api/authentication/v1"
 	authz "k8s.io/api/authorization/v1"
+	coord "k8s.io/api/coordination/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
 	fd "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
@@ -96,6 +98,56 @@ func TestInvalidTokenRequestResponseNeverPublishes(t *testing.T) {
 			})
 			if _, err := Request(context.Background(), client, c, consumer, nil, now); err != provider.Auth {
 				t.Fatal("invalid response crossed credential boundary")
+			}
+		})
+	}
+}
+
+func TestConsumerLeaseUIDAndCrossNamespaceAuthority(t *testing.T) {
+	for _, mode := range []string{"valid", "wrong-uid", "cross-namespace-update", "other-name-update", "missing"} {
+		t.Run(mode, func(t *testing.T) {
+			consumer := config.Consumer{ServiceAccount: config.ServiceAccount{Name: "ca", UID: "ca-uid"}, PermissionProfile: "ca-read-events-lease", LeaderElectionLease: &config.Ref{Namespace: "identity", Name: "ca-leader", UID: "lease-uid"}}
+			c := config.Cluster{IdentityNamespace: "identity", KubeSystemUID: "cluster-uid", Consumers: []config.Consumer{consumer}}
+			client := fake.NewClientset(&core.Namespace{ObjectMeta: meta.ObjectMeta{Name: "kube-system", UID: "cluster-uid"}}, &core.ServiceAccount{ObjectMeta: meta.ObjectMeta{Namespace: "identity", Name: "ca", UID: "ca-uid"}})
+			client.Discovery().(*fd.FakeDiscovery).FakedServerVersion = &version.Info{Major: "1", Minor: "35"}
+			client.PrependReactor("create", "selfsubjectreviews", func(kt.Action) (bool, runtime.Object, error) {
+				return true, &auth.SelfSubjectReview{Status: auth.SelfSubjectReviewStatus{UserInfo: auth.UserInfo{Username: "system:serviceaccount:identity:ca", Groups: []string{"system:serviceaccounts", "system:serviceaccounts:identity", "system:authenticated"}}}}, nil
+			})
+			client.PrependReactor("create", "selfsubjectrulesreviews", func(kt.Action) (bool, runtime.Object, error) {
+				return true, &authz.SelfSubjectRulesReview{Status: authz.SubjectRulesReviewStatus{ResourceRules: []authz.ResourceRule{{APIGroups: []string{"coordination.k8s.io"}, Resources: []string{"leases"}, Verbs: []string{"get", "update"}, ResourceNames: []string{"ca-leader"}}}}}, nil
+			})
+			client.PrependReactor("get", "leases", func(kt.Action) (bool, runtime.Object, error) {
+				if mode == "missing" {
+					return true, nil, provider.Auth
+				}
+				uid := "lease-uid"
+				if mode == "wrong-uid" {
+					uid = "other"
+				}
+				return true, &coord.Lease{ObjectMeta: meta.ObjectMeta{Namespace: "identity", Name: "ca-leader", UID: types.UID(uid)}}, nil
+			})
+			client.PrependReactor("create", "selfsubjectaccessreviews", func(a kt.Action) (bool, runtime.Object, error) {
+				attr := a.(kt.CreateAction).GetObject().(*authz.SelfSubjectAccessReview).Spec.ResourceAttributes
+				allowed := attr.Verb == "list" && attr.Resource != "secrets" || attr.Resource == "events" && attr.Verb == "create"
+				if attr.Resource == "leases" {
+					allowed = attr.Namespace == "identity" && attr.Name == "ca-leader" && (attr.Verb == "get" || attr.Verb == "update")
+					if mode == "cross-namespace-update" && attr.Verb == "update" {
+						allowed = true
+					}
+					if mode == "other-name-update" && attr.Verb == "update" && attr.Namespace == "identity" {
+						allowed = true
+					}
+				}
+				return true, &authz.SelfSubjectAccessReview{Status: authz.SubjectAccessReviewStatus{Allowed: allowed}}, nil
+			})
+			err := ValidateConsumer(context.Background(), client, c, consumer)
+			if (err == nil) != (mode == "valid") {
+				t.Fatal("Lease UID/scope guard incorrect")
+			}
+			for _, a := range client.Actions() {
+				if a.GetResource().Resource == "leases" && a.GetVerb() != "get" {
+					t.Fatal("consumer validation mutated Lease")
+				}
 			}
 		})
 	}

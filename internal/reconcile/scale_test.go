@@ -19,9 +19,10 @@ import (
 
 // A typed fake does not reproduce ScaleSpec's zero omission or real REST response decoding.
 func TestScaleRESTZeroFieldAndResponse(t *testing.T) {
-	for _, from := range []int32{0, 1} {
-		t.Run(fmt.Sprint(from), func(t *testing.T) {
-			to := int32(1) - from
+	for _, counts := range [][2]int32{{0, 1}, {1, 0}, {0, 2}, {2, 0}} {
+		from, to := counts[0], counts[1]
+		t.Run(fmt.Sprint(from, "-", to), func(t *testing.T) {
+			limit := int32(2)
 			object := autoscaling.Scale{TypeMeta: meta.TypeMeta{APIVersion: "autoscaling/v1", Kind: "Scale"}, ObjectMeta: meta.ObjectMeta{Name: "ca", Namespace: "ns", UID: "deployment-uid", ResourceVersion: "7"}, Spec: autoscaling.ScaleSpec{Replicas: from}}
 			patched := false
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +71,7 @@ func TestScaleRESTZeroFieldAndResponse(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := scale(context.Background(), client, config.Consumer{CADeployment: config.Deployment{Namespace: "ns", Name: "ca", UID: "deployment-uid"}}, from, to); err != nil {
+			if err := scale(context.Background(), client, config.Consumer{CADeployment: config.Deployment{Namespace: "ns", Name: "ca", UID: "deployment-uid", MaxReplicas: &limit}}, from, to); err != nil {
 				t.Fatal("Scale REST operation failed", err)
 			}
 			if !patched {

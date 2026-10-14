@@ -145,7 +145,10 @@ Global fields: schemaVersion, managementUID and clusters[]. Cluster fields:
 - lifetime: requestedSeconds, acceptedMinSeconds, acceptedMaxSeconds, renewBeforeSeconds,
   stopBeforeSeconds and clockSkewSeconds. Positive, internally ordered and bounded.
 - consumers[]: unique id/enabled, child SA name/UID, management Secret namespace/name/UID,
-  CA Deployment namespace/name/UID/imageDigest, reloadPolicy and approved permission profile.
+  CA Deployment namespace/name/UID/imageDigest and optional maxReplicas, reloadPolicy and approved permission profile.
+  maxReplicas defaults to 1 and accepts only 1 or 2. The opt-in ca-read-events-lease profile
+  requires leaderElectionLease namespace/name/UID in the enrolled identity namespace; maxReplicas=2
+  requires that profile. The legacy ca-read-events profile forbids a Lease declaration.
 
 Provider union: SecretIssuer includes issuer SA name/UID and Secret ref. OAuthTokenExchange
 includes tokenEndpoint, TLS trust Secret ref, clientID/clientSecret ref, projected subject token
@@ -200,6 +203,11 @@ Authenticate candidate issuer/consumer with SelfSubjectReview and check expected
 verify SA UID by named GET and token claims, target UID by authenticated GET and required/denied
 rights by SSAR. Supplemental JWT parsing is NOT signature/authentication verification. Reject
 unexpected privileged groups; OIDC principal mappings are configured and separate from SA subjects.
+The opt-in Lease profile permits only named Lease get/update, verifies its pinned UID and checks
+that create/delete and other-name/namespace writes are denied. Issuer identities never gain Lease
+authority. Operators precreate/grant the Lease outside this service; the controller never repairs
+or broadens RBAC. A stopped candidate may declare this profile with the default singleton bound
+when its child ServiceAccount also serves an independently managed HA CA.
 Static YAML and fake clients cannot prove real RBAC subresource-name restrictions.
 
 REQ-10: Pin endpoints, TLS trust/SAN and expected identities. Disallow insecure TLS, redirects,
@@ -251,7 +259,10 @@ activity after the OLD token expires, for two real rotations on the accepted CA 
 
 `StopStart` is the explicit compatibility policy. Persist per-consumer restart intent (operation
 ID, config generation, Deployment UID, initial replicas, candidate expiry) in the named status CM
-BEFORE stopping. Only an approved running singleton can be stopped/restarted. CAS /scale UID/RV,
+BEFORE stopping. Only an explicitly bounded running CA can be stopped/restarted. A two-replica bound requires
+canonical, unique --leader-elect=true, --leader-elect-resource-lock=leases,
+--leader-elect-resource-name=<declared Lease name> and --namespace=<declared child namespace>
+arguments on the pinned CA container. Persist/restore the actual initial count, not the maximum. CAS /scale UID/RV,
 wait for actual Deployment status replicas zero, publish/readback, then resume only matching intent.
 If intent persistence fails, do not stop. Recovery revalidates candidate expiry and identity.
 Never start an already stopped CA. Exclude HPA/other scale writers and require suspension before

@@ -425,6 +425,12 @@
                         "imageDigest": {
                           "type": "string",
                           "pattern": "^sha256:[0-9a-f]{64}$"
+                        },
+                        "maxReplicas": {
+                          "enum": [
+                            1,
+                            2
+                          ]
                         }
                       },
                       "required": [
@@ -441,7 +447,35 @@
                       ]
                     },
                     "permissionProfile": {
-                      "const": "ca-read-events"
+                      "enum": [
+                        "ca-read-events",
+                        "ca-read-events-lease"
+                      ]
+                    },
+                    "leaderElectionLease": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "namespace": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 253,
+                          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                        },
+                        "uid": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        }
+                      },
+                      "required": [
+                        "namespace",
+                        "name",
+                        "uid"
+                      ]
                     }
                   },
                   "required": [
@@ -452,6 +486,55 @@
                     "caDeployment",
                     "reloadPolicy",
                     "permissionProfile"
+                  ],
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "permissionProfile": {
+                            "const": "ca-read-events-lease"
+                          }
+                        }
+                      },
+                      "then": {
+                        "required": [
+                          "leaderElectionLease"
+                        ]
+                      },
+                      "else": {
+                        "not": {
+                          "required": [
+                            "leaderElectionLease"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "caDeployment": {
+                            "properties": {
+                              "maxReplicas": {
+                                "const": 2
+                              }
+                            },
+                            "required": [
+                              "maxReplicas"
+                            ]
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "permissionProfile": {
+                            "const": "ca-read-events-lease"
+                          }
+                        },
+                        "required": [
+                          "leaderElectionLease"
+                        ]
+                      }
+                    }
                   ]
                 }
               }
