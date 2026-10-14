@@ -126,3 +126,41 @@ func TestActivationGuards(t *testing.T) {
 		}
 	}
 }
+
+func TestHAConsumerSchemaRequiresExplicitEnrollment(t *testing.T) {
+	if _, err := exec.LookPath("helm"); err != nil {
+		t.Skip("helm is required")
+	}
+	data, err := os.ReadFile("../../examples/registry.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"valid", "missing-lease", "legacy-profile", "three", "null"} {
+		t.Run(mode, func(t *testing.T) {
+			var registry map[string]any
+			if err := json.Unmarshal(data, &registry); err != nil {
+				t.Fatal(err)
+			}
+			cluster := registry["clusters"].([]any)[0].(map[string]any)
+			consumer := cluster["consumers"].([]any)[0].(map[string]any)
+			deployment := consumer["caDeployment"].(map[string]any)
+			consumer["permissionProfile"] = "ca-read-events-lease"
+			consumer["leaderElectionLease"] = map[string]any{"namespace": cluster["identityNamespace"], "name": "ca-leader", "uid": "00000000-0000-4000-8000-000000000001"}
+			deployment["maxReplicas"] = 2
+			switch mode {
+			case "missing-lease":
+				delete(consumer, "leaderElectionLease")
+			case "legacy-profile":
+				consumer["permissionProfile"] = "ca-read-events"
+			case "three":
+				deployment["maxReplicas"] = 3
+			case "null":
+				deployment["maxReplicas"] = nil
+			}
+			_, err := render(t, map[string]any{"registry": registry})
+			if (err == nil) != (mode == "valid") {
+				t.Fatal("HA schema trust boundary incorrect")
+			}
+		})
+	}
+}
