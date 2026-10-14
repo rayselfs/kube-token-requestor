@@ -44,7 +44,7 @@ func TestSafetyPreflightFailureDoesNotStarveSiblingWork(t *testing.T) {
 				}
 				objects = append(objects,
 					&core.Secret{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: name, UID: types.UID(consumer.Secret.UID), Annotations: map[string]string{publish.Owner: name}}, Type: core.SecretTypeOpaque, Data: map[string][]byte{"ca.crt": ca, "token": []byte(token)}},
-					&apps.Deployment{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: name, UID: types.UID(uid)}, Spec: apps.DeploymentSpec{Replicas: replicas, Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{{Image: "synthetic@" + digest}}}}}},
+					&apps.Deployment{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: name, UID: types.UID(uid)}, Spec: apps.DeploymentSpec{Replicas: replicas, Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{{Image: "synthetic@" + digest}}}}}, Status: apps.DeploymentStatus{TerminatingReplicas: new(int32)}},
 				)
 			}
 			client := fake.NewClientset(objects...)

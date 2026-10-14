@@ -111,8 +111,14 @@ func stopped(ctx context.Context, client kubernetes.Interface, consumer config.C
 		if *d.Spec.Replicas != 0 {
 			return provider.Conflict
 		}
-		if d.Status.ObservedGeneration >= d.Generation && d.Status.Replicas == 0 {
-			return nil
+		if d.Status.ObservedGeneration >= d.Generation {
+			// replicas excludes terminating Pods. Missing accounting is not proof of a stop.
+			if d.Status.TerminatingReplicas == nil {
+				return provider.Trust
+			}
+			if d.Status.Replicas == 0 && *d.Status.TerminatingReplicas == 0 {
+				return nil
+			}
 		}
 		select {
 		case <-ctx.Done():

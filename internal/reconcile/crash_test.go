@@ -30,7 +30,7 @@ func TestFreshProcessCompletesDurableStopAfterInterruption(t *testing.T) {
 			digest := "sha256:" + strings.Repeat("1", 64)
 			one := int32(1)
 			consumer := config.Consumer{ID: "affected", CADeployment: config.Deployment{Namespace: "ns", Name: "ca", UID: "deployment-uid", ImageDigest: digest}}
-			d := &apps.Deployment{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "ca", UID: "deployment-uid", ResourceVersion: "1", Generation: 1}, Spec: apps.DeploymentSpec{Replicas: &one, Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{{Image: "test@" + digest}}}}}, Status: apps.DeploymentStatus{ObservedGeneration: 1, Replicas: 1, ReadyReplicas: 1}}
+			d := &apps.Deployment{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "ca", UID: "deployment-uid", ResourceVersion: "1", Generation: 1}, Spec: apps.DeploymentSpec{Replicas: &one, Template: core.PodTemplateSpec{Spec: core.PodSpec{Containers: []core.Container{{Image: "test@" + digest}}}}}, Status: apps.DeploymentStatus{ObservedGeneration: 1, Replicas: 1, ReadyReplicas: 1, TerminatingReplicas: new(int32)}}
 			client := fake.NewClientset(&core.ConfigMap{ObjectMeta: meta.ObjectMeta{Namespace: "ns", Name: "status", UID: "status-uid"}}, d)
 			store := &status.Store{Client: client, Namespace: "ns", Name: "status", UID: "status-uid"}
 			initial := &Engine{Management: client, Store: store}

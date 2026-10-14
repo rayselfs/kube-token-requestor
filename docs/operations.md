@@ -158,3 +158,17 @@ a singleton-only binary while its safety/restart intent remains active.
 Unit/fake-client tests cover trust and lifecycle decisions; live named-Lease RBAC,
 real multi-Pod reload, fault recovery and natural rotations remain deployment
 acceptance requirements. No new production support row is implied by this change.
+
+### StopStart termination accounting
+
+Normal publication waits for observed generation, zero non-terminating replicas and explicit
+zero terminatingReplicas. Kubernetes may retain completed Pod API objects until garbage
+collection; accounting must prove no active or terminating processes, not only desired count.
+An absent counter is unsupported/unconfirmed, not zero. StopStart normal renewal rejects it
+before stopping or issuing; safety stop can still request zero but reports an unconfirmed stop
+until accounting exists. TokenFile normal renewal remains unchanged.
+
+Check this capability on the management API before adoption. Kubernetes 1.35+ enables it by
+default; do not mutate API-server/controller-manager feature gates through this controller.
+Existing named Deployment GET is sufficient; no Pod list, new RBAC or component is required.
+See [upstream termination accounting](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#terminating-pods).

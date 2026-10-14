@@ -60,7 +60,11 @@ publication and resume; output/status CAS remains necessary because cross-object
 atomic. Safety guards still operate when a new registry is invalid.
 
 Confirm the registry namespace matches each CA Secret mount namespace. CA tokens must use a
-normal read-only Secret volume without `subPath` or environment-variable copies. Use StopStart
+normal read-only Secret volume without `subPath` or environment-variable copies. StopStart
+requires the management Deployment to report `status.terminatingReplicas` explicitly (normally
+available on Kubernetes 1.35+). A zero replicas count alone excludes terminating Pods and cannot
+prove they stopped. Missing accounting fails closed; this chart does not enable cluster feature
+gates or add permissions to work around that check. Use StopStart
 until the exact CA image's TokenFile reload behavior has passed actual-Pod acceptance.
 
 ## Stopped installation
