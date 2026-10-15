@@ -76,6 +76,10 @@ func issuerFixture(t *testing.T, mode string) (*Engine, config.Cluster, *atomic.
 		case "/api/v1/namespaces/identity/serviceaccounts/issuer":
 			response = &core.ServiceAccount{ObjectMeta: meta.ObjectMeta{UID: "issuer-uid"}}
 		case "/api/v1/namespaces/identity/serviceaccounts/ca":
+			if mode == "missing-consumer" {
+				w.WriteHeader(404)
+				return
+			}
 			response = &core.ServiceAccount{ObjectMeta: meta.ObjectMeta{UID: "ca-uid"}}
 		case "/api/v1/namespaces/identity/serviceaccounts/issuer/token":
 			requests.Add(1)
@@ -266,7 +270,7 @@ func TestExpiredSourceRequiresRebootstrapWithoutIssuance(t *testing.T) {
 }
 
 func TestSourceRenewalUsesClusterQueueNotConsumerDeadline(t *testing.T) {
-	for _, mode := range []string{"valid", "disabled-cluster", "rate-limit"} {
+	for _, mode := range []string{"valid", "disabled-cluster", "rate-limit", "missing-consumer"} {
 		t.Run(mode, func(t *testing.T) {
 			e, c, requests := issuerFixture(t, mode)
 			ctx := context.Background()
@@ -289,6 +293,9 @@ func TestSourceRenewalUsesClusterQueueNotConsumerDeadline(t *testing.T) {
 			if mode == "disabled-cluster" {
 				c.Enabled = &disabled
 			}
+			if mode == "missing-consumer" {
+				consumer.Enabled = &enabled
+			}
 			err := e.Slice(ctx, c, "generation", 0, true)
 			if mode == "rate-limit" {
 				var retry *provider.Retry
@@ -301,8 +308,8 @@ func TestSourceRenewalUsesClusterQueueNotConsumerDeadline(t *testing.T) {
 				}
 				return
 			}
-			if err != nil {
-				t.Fatal("cluster queue failed source renewal", err)
+			if (err != nil) != (mode == "missing-consumer") {
+				t.Fatal("incorrect source/consumer failure isolation", err)
 			}
 			want := int64(1)
 			if mode == "disabled-cluster" {
@@ -312,12 +319,12 @@ func TestSourceRenewalUsesClusterQueueNotConsumerDeadline(t *testing.T) {
 				t.Fatal("consumer/cluster enable incorrectly gated source renewal")
 			}
 			fresh, _ := e.Management.CoreV1().Secrets("management").Get(ctx, "source", meta.GetOptions{})
-			if (string(fresh.Data["token"]) != string(source.Data["token"])) != (mode == "valid") {
+			if (string(fresh.Data["token"]) != string(source.Data["token"])) != (mode == "valid" || mode == "missing-consumer") {
 				t.Fatal("unexpected source publication")
 			}
 			// A new process resumes from persisted source without any in-memory renewal state.
 			successor := &Engine{Management: e.Management, Now: e.Now, Current: e.Current, Store: e.Store, Providers: e.Providers}
-			if err = successor.Slice(ctx, c, "generation", 0, true); err != nil || requests.Load() != want {
+			if err = successor.Slice(ctx, c, "generation", 0, true); (err != nil) != (mode == "missing-consumer") || requests.Load() != want {
 				t.Fatal("leader restart repeated source issuance", err)
 			}
 			for _, a := range e.Management.(*fake.Clientset).Actions() {

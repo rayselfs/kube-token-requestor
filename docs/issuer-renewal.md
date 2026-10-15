@@ -39,7 +39,10 @@ status or event bodies. Kubernetes Secret encryption/access policies remain prer
    enrolled audiences and configured bounded TTL. No consumer replica change is needed.
 3. Validate successor claims: SA subject/name/namespace/UID, audiences, issued/not-before/expiry,
    TTL bounds and TokenRequest expiration timestamp. Then use the successor over validated TLS
-   for actual identity and full effective permissions review. Decoding a JWT alone is insufficient.
+   for actual issuer identity, pinned SA, self-mint and full effective grant review. Positive
+   consumer SA/permission checks happen only before that consumer is issued a token;
+   successor validation does not scan100 accounts per source renewal. A missing consumer account/grant cannot block source renewal or healthy siblings. Foreign
+   grants remain rejected even outside the current slice. Decoding a JWT alone is insufficient.
 4. Recheck leadership/configuration. UID/resourceVersion JSON Patch tests bind a replacement of
    only `/data/token`; reject non-increasing expiry. Keep source UID, CA, keys, annotations and
    other metadata. Read back the exact successor. Consumers use the authenticated new issuer.

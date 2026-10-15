@@ -2,6 +2,7 @@ package issue
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -72,8 +73,13 @@ func TestInvalidTokenRequestResponseNeverPublishes(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			c := config.Cluster{IdentityNamespace: "identity", Audiences: []string{"api"}, Lifetime: config.Lifetime{RequestedSeconds: 600, AcceptedMinSeconds: 590, AcceptedMaxSeconds: 610, ClockSkewSeconds: 5}}
 			consumer := config.Consumer{ServiceAccount: config.ServiceAccount{Name: "ca", UID: "ca-uid"}}
-			client := fake.NewClientset()
+			client := fake.NewClientset(&core.ServiceAccount{ObjectMeta: meta.ObjectMeta{Namespace: "identity", Name: "ca", UID: "ca-uid"}})
+			client.PrependReactor("create", "selfsubjectaccessreviews", func(kt.Action) (bool, runtime.Object, error) {
+				return true, &authz.SelfSubjectAccessReview{Status: authz.SubjectAccessReviewStatus{Allowed: true}}, nil
+			})
+			requested := false
 			client.PrependReactor("create", "serviceaccounts", func(a kt.Action) (bool, runtime.Object, error) {
+				requested = true
 				if a.GetSubresource() != "token" {
 					t.Fatal("unexpected create")
 				}
@@ -98,6 +104,9 @@ func TestInvalidTokenRequestResponseNeverPublishes(t *testing.T) {
 			})
 			if _, err := Request(context.Background(), client, c, consumer, nil, now); err != provider.Auth {
 				t.Fatal("invalid response crossed credential boundary")
+			}
+			if !requested {
+				t.Fatal("invalid-response test did not reach TokenRequest")
 			}
 		})
 	}
@@ -150,5 +159,53 @@ func TestConsumerLeaseUIDAndCrossNamespaceAuthority(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestIssuerAuditsFullEnrollmentWithBoundedConsumerChecks(t *testing.T) {
+	c := config.Cluster{KubeSystemUID: "cluster-uid", IdentityNamespace: "identity", ExpectedIssuer: config.Principal{Username: "issuer", Groups: []string{"system:authenticated"}}}
+	objects := []runtime.Object{&core.Namespace{ObjectMeta: meta.ObjectMeta{Name: "kube-system", UID: "cluster-uid"}}}
+	names := []string{}
+	for i := range 100 {
+		name := fmt.Sprintf("ca-%d", i)
+		uid := fmt.Sprintf("uid-%d", i)
+		c.Consumers = append(c.Consumers, config.Consumer{ServiceAccount: config.ServiceAccount{Name: name, UID: uid}})
+		names = append(names, name)
+		objects = append(objects, &core.ServiceAccount{ObjectMeta: meta.ObjectMeta{Name: name, Namespace: "identity", UID: types.UID(uid)}})
+	}
+	client := fake.NewClientset(objects...)
+	client.Discovery().(*fd.FakeDiscovery).FakedServerVersion = &version.Info{Major: "1", Minor: "35"}
+	client.PrependReactor("create", "selfsubjectreviews", func(kt.Action) (bool, runtime.Object, error) {
+		return true, &auth.SelfSubjectReview{Status: auth.SelfSubjectReviewStatus{UserInfo: auth.UserInfo{Username: "issuer", Groups: c.ExpectedIssuer.Groups}}}, nil
+	})
+	client.PrependReactor("create", "selfsubjectrulesreviews", func(kt.Action) (bool, runtime.Object, error) {
+		return true, &authz.SelfSubjectRulesReview{Status: authz.SubjectRulesReviewStatus{ResourceRules: []authz.ResourceRule{{APIGroups: []string{""}, Resources: []string{"serviceaccounts/token"}, Verbs: []string{"create"}, ResourceNames: names}}}}, nil
+	})
+	checks := 0
+	client.PrependReactor("create", "selfsubjectaccessreviews", func(a kt.Action) (bool, runtime.Object, error) {
+		attr := a.(kt.CreateAction).GetObject().(*authz.SelfSubjectAccessReview).Spec.ResourceAttributes
+		allowed := attr.Resource == "serviceaccounts" && attr.Subresource == "token" && attr.Name != "unregistered-requestor-denial-probe"
+		if allowed {
+			checks++
+		}
+		return true, &authz.SelfSubjectAccessReview{Status: authz.SubjectAccessReviewStatus{Allowed: allowed}}, nil
+	})
+	if err := IssuerForConsumers(context.Background(), client, c, c.Consumers[12:16]); err != nil {
+		t.Fatal("sliced review rejected legitimate enrolled grants", err)
+	}
+	if checks != 4 {
+		t.Fatal("positive checks exceeded bounded queue slice")
+	}
+	for _, a := range client.Actions() {
+		if a.GetVerb() == "get" && a.GetResource().Resource == "serviceaccounts" {
+			n := a.(kt.GetAction).GetName()
+			if n != "ca-12" && n != "ca-13" && n != "ca-14" && n != "ca-15" {
+				t.Fatal("looked up unrelated consumer")
+			}
+		}
+	}
+	names = append(names, "foreign")
+	if err := IssuerForConsumers(context.Background(), client, c, c.Consumers[12:16]); err != provider.Auth {
+		t.Fatal("full enrollment audit accepted foreign grant", err)
 	}
 }

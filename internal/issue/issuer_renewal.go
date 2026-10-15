@@ -46,7 +46,7 @@ func RequestIssuer(ctx context.Context, client kubernetes.Interface, c config.Cl
 	if err != nil {
 		return candidate, err
 	}
-	if err := Issuer(ctx, successor, c); err != nil {
+	if err := IssuerForConsumers(ctx, successor, c, nil); err != nil {
 		return candidate, err
 	}
 	return Candidate{Token: response.Status.Token, CA: append([]byte(nil), ca...), Expires: response.Status.ExpirationTimestamp.Time}, nil

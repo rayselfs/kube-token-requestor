@@ -197,9 +197,7 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 			issuer, acquisition = issue.Client(c.Endpoint, identity)
 		}
 		if acquisition == nil {
-			slice := c
-			slice.Consumers = c.Consumers[offset:end]
-			acquisition = issue.Issuer(ctx, issuer, slice)
+			acquisition = issue.IssuerForConsumers(ctx, issuer, c, nil)
 		}
 		observeIssuer := func() {
 			if e.IssuerMetric != nil {
