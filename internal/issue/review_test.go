@@ -96,3 +96,35 @@ func TestNamedLeasePermissionsRequireOptIn(t *testing.T) {
 		})
 	}
 }
+
+func TestIssuerSelfMintRequiresExplicitRenewal(t *testing.T) {
+	for _, mode := range []string{"enabled", "legacy", "consumer", "foreign", "wildcard", "oauth"} {
+		t.Run(mode, func(t *testing.T) {
+			c := config.Cluster{IdentityNamespace: "identity", Provider: config.Provider{Type: "SecretIssuer", ServiceAccount: &config.ServiceAccount{Name: "issuer"}, Renewal: &config.Lifetime{}}, Consumers: []config.Consumer{{ServiceAccount: config.ServiceAccount{Name: "ca"}}}}
+			names := []string{"issuer", "ca"}
+			if mode == "legacy" {
+				c.Provider.Renewal = nil
+			}
+			if mode == "foreign" {
+				names = append(names, "foreign")
+			}
+			if mode == "wildcard" {
+				names = nil
+			}
+			if mode == "oauth" {
+				c.Provider.Type = "OAuthTokenExchange"
+			}
+			client := fake.NewClientset()
+			client.PrependReactor("create", "selfsubjectrulesreviews", func(kt.Action) (bool, runtime.Object, error) {
+				return true, &authz.SelfSubjectRulesReview{Status: authz.SubjectRulesReviewStatus{ResourceRules: []authz.ResourceRule{{APIGroups: []string{""}, Resources: []string{"serviceaccounts/token"}, Verbs: []string{"create"}, ResourceNames: names}}}}, nil
+			})
+			var consumer *config.Consumer
+			if mode == "consumer" {
+				consumer = &c.Consumers[0]
+			}
+			if (reviewPermissions(context.Background(), client, c, consumer) == nil) != (mode == "enabled") {
+				t.Fatal("self mint broadened beyond explicit issuer policy")
+			}
+		})
+	}
+}

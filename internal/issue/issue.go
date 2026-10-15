@@ -103,7 +103,7 @@ func Issuer(ctx context.Context, client kubernetes.Interface, c config.Cluster) 
 		if err := NamedSA(ctx, client, c.IdentityNamespace, *c.Provider.ServiceAccount); err != nil {
 			return err
 		}
-		if err := Permission(ctx, client, authz.ResourceAttributes{Namespace: c.IdentityNamespace, Verb: "create", Resource: "serviceaccounts", Subresource: "token", Name: c.Provider.ServiceAccount.Name}, false); err != nil {
+		if err := Permission(ctx, client, authz.ResourceAttributes{Namespace: c.IdentityNamespace, Verb: "create", Resource: "serviceaccounts", Subresource: "token", Name: c.Provider.ServiceAccount.Name}, c.Provider.Renewal != nil); err != nil {
 			return err
 		}
 	}

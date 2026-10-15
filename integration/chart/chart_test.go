@@ -164,3 +164,79 @@ func TestHAConsumerSchemaRequiresExplicitEnrollment(t *testing.T) {
 		})
 	}
 }
+
+func TestIssuerRenewalChartScope(t *testing.T) {
+	if _, err := exec.LookPath("helm"); err != nil {
+		t.Skip("helm is required")
+	}
+	data, err := os.ReadFile("../../examples/registry.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"enabled", "legacy", "long-lived", "null", "oauth"} {
+		t.Run(mode, func(t *testing.T) {
+			var registry map[string]any
+			_ = json.Unmarshal(data, &registry)
+			clusters := registry["clusters"].([]any)
+			c := clusters[0].(map[string]any)
+			p := c["provider"].(map[string]any)
+			if mode != "legacy" {
+				p["longLived"] = false
+				delete(p, "rotationPeriodSeconds")
+				p["renewal"] = c["lifetime"]
+			}
+			switch mode {
+			case "long-lived":
+				p["longLived"] = true
+				p["rotationPeriodSeconds"] = 2592000
+			case "null":
+				p["renewal"] = nil
+			case "oauth":
+				clusters[1].(map[string]any)["provider"].(map[string]any)["renewal"] = c["lifetime"]
+			}
+			objects, err := render(t, map[string]any{"registry": registry})
+			valid := mode == "enabled" || mode == "legacy"
+			if (err == nil) != valid {
+				t.Fatal("renewal schema boundary incorrect")
+			}
+			if !valid {
+				return
+			}
+			ref := p["secret"].(map[string]any)
+			sources := 0
+			for _, o := range objects {
+				if o["kind"] != "Role" {
+					continue
+				}
+				name := o["metadata"].(map[string]any)["name"].(string)
+				if !strings.HasSuffix(name, "-src") {
+					continue
+				}
+				for _, raw := range o["rules"].([]any) {
+					r := raw.(map[string]any)
+					verbs := r["verbs"].([]any)
+					names := r["resourceNames"].([]any)
+					expectedPatch := mode == "enabled" && names[0] == ref["name"] && o["metadata"].(map[string]any)["namespace"] == ref["namespace"]
+					hasPatch := false
+					for _, v := range verbs {
+						if v == "patch" {
+							hasPatch = true
+						}
+						if v != "get" && v != "patch" {
+							t.Fatal("broad source grant")
+						}
+					}
+					if hasPatch != expectedPatch || len(names) != 1 {
+						t.Fatal("source PATCH escaped explicit renewal")
+					}
+					if hasPatch {
+						sources++
+					}
+				}
+			}
+			if (sources == 1) != (mode == "enabled") {
+				t.Fatal("incorrect number of writable sources")
+			}
+		})
+	}
+}

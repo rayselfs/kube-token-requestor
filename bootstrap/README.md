@@ -23,8 +23,13 @@ pre-existing management Opaque Secret. Do not put token payloads in Helm values,
 command arguments, local files or this repository. Record actual object UIDs and public CA hash
 in the registry only after creation. Use independent human/bootstrap and controller identities.
 
-The source issuer's lifetime is an explicit operator policy. A bounded source token needs an
-independent renewal mechanism and cannot be self-renewed by this controller. A legacy dedicated
+The source issuer's lifetime is an explicit operator policy. For unattended operation, enable
+`provider.renewal` with a bounded source token and separately review/apply
+[renewable-issuer-role.yaml](renewable-issuer-role.yaml). It grants only named issuer self-mint;
+the base example above remains unchanged and rejects self-mint without this profile. The
+controller chart adds PATCH only for the pinned management source when explicitly enabled.
+See [renewal, recovery and revocation](../docs/issuer-renewal.md). No periodic operator rotation is
+required while the issuer remains valid and the controller can renew before expiry. A legacy dedicated
 ServiceAccount-token Secret is a long-lived bootstrap credential: it requires an approved
 rotation/revocation owner, encrypted storage and a pinned management Secret with `rotated-at`.
 This example deliberately creates no long-lived credential. Do not use a cluster-admin kubeconfig

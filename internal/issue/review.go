@@ -43,6 +43,9 @@ func reviewPermissions(ctx context.Context, client kubernetes.Interface, c confi
 							for _, consumer := range c.Consumers {
 								names = append(names, consumer.ServiceAccount.Name)
 							}
+							if c.Provider.Renewal != nil && c.Provider.Type == "SecretIssuer" && c.Provider.ServiceAccount != nil {
+								names = append(names, c.Provider.ServiceAccount.Name)
+							}
 							allowed = namedOnly(rule.ResourceNames, names)
 						}
 					}

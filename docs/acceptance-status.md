@@ -49,3 +49,11 @@ of compatibility, failure/recovery, receiver delivery and operator adoption evid
 An installation can review and stage RC6 with controller replicas zero using the
 [installation guide](installation.md). Staging is not activation or production acceptance.
 No repository CI or release authorizes changes to an external Kubernetes cluster.
+
+## Unreleased renewable issuer profile
+
+The new [renewable source contract](issuer-renewal.md) is not covered by the historical RC rows.
+Synthetic TLS/fake-client tests and Helm/schema/rule tests are part of this change; actual API
+RBAC enforcement, paired release and intended-service source/consumer/failover acceptance remain
+pending. Source renewal must not be confused with existing CA-token renewal receipts. No public
+production-accepted matrix entry is added by these tests.

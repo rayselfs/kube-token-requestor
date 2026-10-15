@@ -156,6 +156,8 @@ func TestNamedReferences(t *testing.T) {
 func FuzzParse(f *testing.F) {
 	data, _ := os.ReadFile("../../examples/registry.json")
 	f.Add(data)
+	renewable, _ := os.ReadFile("../../examples/renewable-registry.json")
+	f.Add(renewable)
 	f.Add([]byte(`{"x":1,"x":2}`))
 	f.Add([]byte("null"))
 	f.Fuzz(func(t *testing.T, data []byte) {
@@ -200,5 +202,47 @@ func TestHAEnrollmentIsExplicitAndBounded(t *testing.T) {
 				t.Fatal("HA declaration boundary incorrect")
 			}
 		})
+	}
+}
+
+func TestIssuerRenewalPolicy(t *testing.T) {
+	for _, mode := range []string{"valid", "long-lived", "zero-budget", "unknown-field", "oauth", "null"} {
+		t.Run(mode, func(t *testing.T) {
+			v := fixture(t)
+			p := provider(v, 0)
+			p["longLived"] = false
+			delete(p, "rotationPeriodSeconds")
+			policy := cluster(v, 0)["lifetime"].(map[string]any)
+			p["renewal"] = policy
+			switch mode {
+			case "long-lived":
+				p["longLived"] = true
+				p["rotationPeriodSeconds"] = 2592000
+			case "zero-budget":
+				policy["renewBeforeSeconds"] = 0
+			case "unknown-field":
+				policy["credentials"] = "synthetic-canary"
+			case "oauth":
+				provider(v, 1)["renewal"] = policy
+			case "null":
+				p["renewal"] = nil
+			}
+			data, _ := json.Marshal(v)
+			_, err := Parse(bytes.NewReader(data))
+			if (err == nil) != (mode == "valid") {
+				t.Fatal("incorrect renewal policy boundary")
+			}
+		})
+	}
+}
+
+func TestRenewableExample(t *testing.T) {
+	data, err := os.ReadFile("../../examples/renewable-registry.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry, err := Parse(bytes.NewReader(data))
+	if err != nil || registry.Clusters[0].Provider.Renewal == nil {
+		t.Fatal("renewable example rejected", err)
 	}
 }

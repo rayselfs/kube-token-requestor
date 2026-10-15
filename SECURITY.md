@@ -12,9 +12,14 @@ A process compromise can affect all enrolled consumers. Namespaced Roles restric
 resources; they do not create process-level isolation between enrolled clusters. Separate
 administrative trust domains require separate installations, not silent enrollment into one.
 
-SecretIssuer uses a long-lived bearer credential by default. This is an explicit operational
-tradeoff, not Kubernetes' preferred authentication approach. Its required rotation, revocation,
-access-control and backup handling are defined in the specification and operations guide.
+SecretIssuer authentication policy is explicit. The renewable short-lived profile grants named
+issuer self-mint and PATCH on exactly its pinned management source Secret. A stolen renewable
+issuer can continue minting until its authority is revoked: short token TTL is not automatic
+compromise containment. Revoke the named issuer grant (and address existing tokens), or use the
+reviewed identity-replacement procedure; replacing only the source bytes does not revoke stolen
+predecessors. No automatic RBAC grants, admin fallback or legacy-token fallback are implemented.
+Legacy long-lived sources still require independent operator rotation/revocation. See
+[issuer renewal](docs/issuer-renewal.md) for trust, outage and recovery boundaries.
 
 Only implemented, supported release/matrix entries will receive a runtime security-support claim.
 Currently there are no supported runtime releases. Repository licensing is to be selected by the

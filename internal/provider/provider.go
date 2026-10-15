@@ -165,6 +165,12 @@ func (p SecretIssuer) Acquire(ctx context.Context, c config.Cluster) (IssuerCred
 		}
 	} else {
 		now := p.Now()
+		if c.Provider.Renewal != nil {
+			r := c.Provider.Renewal
+			if claims.Issued <= 0 || claims.Issued > now.Add(time.Duration(r.ClockSkewSeconds)*time.Second).Unix() || claims.NotBefore > now.Add(time.Duration(r.ClockSkewSeconds)*time.Second).Unix() || claims.Expires-claims.Issued < r.AcceptedMinSeconds || claims.Expires-claims.Issued > r.AcceptedMaxSeconds || c.Provider.ServiceAccount == nil || claims.Kubernetes.Namespace != c.IdentityNamespace || claims.Kubernetes.ServiceAccount.Name != c.Provider.ServiceAccount.Name || claims.Kubernetes.ServiceAccount.UID != c.Provider.ServiceAccount.UID || !credential.SameSet(claims.Audience, c.Audiences) || claims.Expires <= now.Add(time.Duration(r.StopBeforeSeconds+r.ClockSkewSeconds)*time.Second).Unix() {
+				return result, Auth
+			}
+		}
 		if claims.Expires <= now.Add(time.Duration(c.Lifetime.StopBeforeSeconds+c.Lifetime.ClockSkewSeconds)*time.Second).Unix() {
 			return result, Auth
 		}

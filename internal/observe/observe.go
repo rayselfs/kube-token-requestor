@@ -13,15 +13,15 @@ import (
 )
 
 type Metrics struct {
-	Progress                                                     atomic.Int64
-	Leader, Valid, Ready                                         atomic.Bool
-	Changes                                                      atomic.Uint64
-	Depth, Targets                                               atomic.Int64
-	once                                                         sync.Once
-	base, targets                                                *prometheus.Registry
-	reconcile, requests, exchange, conflicts                     *prometheus.CounterVec
-	duration                                                     *prometheus.HistogramVec
-	expiry, success, observed, condition, issuerExpiry, rotation *prometheus.GaugeVec
+	Progress                                                                 atomic.Int64
+	Leader, Valid, Ready                                                     atomic.Bool
+	Changes                                                                  atomic.Uint64
+	Depth, Targets                                                           atomic.Int64
+	once                                                                     sync.Once
+	base, targets                                                            *prometheus.Registry
+	reconcile, requests, exchange, issuerRequests, conflicts                 *prometheus.CounterVec
+	duration                                                                 *prometheus.HistogramVec
+	expiry, success, observed, condition, issuerExpiry, rotation, renewalDue *prometheus.GaugeVec
 }
 
 func (m *Metrics) init() {
@@ -55,6 +55,7 @@ func (m *Metrics) init() {
 		m.reconcile = counter("reconcile_total", []string{"cluster", "consumer", "result"})
 		m.requests = counter("token_request_total", []string{"cluster", "consumer", "result"})
 		m.exchange = counter("exchange_total", []string{"cluster", "result"})
+		m.issuerRequests = counter("issuer_renewal_total", []string{"cluster", "result"})
 		m.conflicts = counter("secret_conflicts_total", []string{"cluster", "consumer"})
 		m.duration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Namespace: "kube_token_requestor", Name: "reconcile_duration_seconds", Help: "Reconcile slice duration", Buckets: []float64{.1, .5, 1, 5, 10, 30, 60}}, []string{"cluster"})
 		m.targets.MustRegister(m.duration)
@@ -64,6 +65,7 @@ func (m *Metrics) init() {
 		m.condition = gauge("condition", []string{"cluster", "consumer", "condition"})
 		m.issuerExpiry = gauge("issuer_expiry_timestamp_seconds", []string{"cluster"})
 		m.rotation = gauge("issuer_rotation_due_timestamp_seconds", []string{"cluster"})
+		m.renewalDue = gauge("issuer_renewal_due_timestamp_seconds", []string{"cluster"})
 	})
 }
 func boolean(value bool) float64 {
@@ -109,14 +111,21 @@ func (m *Metrics) Event(kind, cluster, consumer, outcome string) {
 	switch kind {
 	case "token":
 		m.requests.WithLabelValues(cluster, consumer, result(outcome)).Inc()
+	case "issuer":
+		m.issuerRequests.WithLabelValues(cluster, result(outcome)).Inc()
 	case "exchange":
 		m.exchange.WithLabelValues(cluster, result(outcome)).Inc()
 	case "conflict":
 		m.conflicts.WithLabelValues(cluster, consumer).Inc()
 	}
 }
-func (m *Metrics) Issuer(cluster string, expiry, rotation time.Time) {
+func (m *Metrics) Issuer(cluster string, expiry, rotation, renewalDue time.Time) {
 	m.init()
+	if renewalDue.IsZero() {
+		m.renewalDue.DeleteLabelValues(cluster)
+	} else {
+		m.renewalDue.WithLabelValues(cluster).Set(float64(renewalDue.Unix()))
+	}
 	if expiry.IsZero() {
 		m.issuerExpiry.DeleteLabelValues(cluster)
 	} else {
@@ -135,6 +144,7 @@ func (m *Metrics) Reset() {
 	m.reconcile.Reset()
 	m.requests.Reset()
 	m.exchange.Reset()
+	m.issuerRequests.Reset()
 	m.conflicts.Reset()
 	m.duration.Reset()
 	m.expiry.Reset()
@@ -143,6 +153,7 @@ func (m *Metrics) Reset() {
 	m.condition.Reset()
 	m.issuerExpiry.Reset()
 	m.rotation.Reset()
+	m.renewalDue.Reset()
 }
 func (m *Metrics) Gather() ([]*dto.MetricFamily, error) {
 	m.init()

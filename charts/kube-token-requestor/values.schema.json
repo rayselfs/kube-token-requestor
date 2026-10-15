@@ -179,6 +179,50 @@
                       "rotationPeriodSeconds": {
                         "type": "integer",
                         "minimum": 0
+                      },
+                      "renewal": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "requestedSeconds": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 604800
+                          },
+                          "acceptedMinSeconds": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 604800
+                          },
+                          "acceptedMaxSeconds": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 604800
+                          },
+                          "renewBeforeSeconds": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 604800
+                          },
+                          "stopBeforeSeconds": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 604800
+                          },
+                          "clockSkewSeconds": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 604800
+                          }
+                        },
+                        "required": [
+                          "requestedSeconds",
+                          "acceptedMinSeconds",
+                          "acceptedMaxSeconds",
+                          "renewBeforeSeconds",
+                          "stopBeforeSeconds",
+                          "clockSkewSeconds"
+                        ]
                       }
                     },
                     "required": [
@@ -186,6 +230,25 @@
                       "serviceAccount",
                       "secret",
                       "longLived"
+                    ],
+                    "allOf": [
+                      {
+                        "if": {
+                          "required": [
+                            "renewal"
+                          ]
+                        },
+                        "then": {
+                          "properties": {
+                            "longLived": {
+                              "const": false
+                            },
+                            "rotationPeriodSeconds": {
+                              "const": 0
+                            }
+                          }
+                        }
+                      }
                     ]
                   },
                   {

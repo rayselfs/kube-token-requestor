@@ -53,6 +53,8 @@ func TestActiveAlertProfiles(t *testing.T) {
 		{"ConsumerRenewalFailed", series("kube_token_requestor_condition", `,cluster="child",consumer="ca",condition="Transport"`), "1x15 0x15", "warning", map[string]string{"job": "test", "namespace": "requestor-test", "cluster": "child", "consumer": "ca", "condition": "Transport"}},
 		{"ConsumerExpiryWarning", series("kube_token_requestor_token_expiry_timestamp_seconds", `,cluster="child",consumer="ca"`), "600x15 100000x15", "critical", target},
 		{"BootstrapRequired", series("kube_token_requestor_condition", `,cluster="child",consumer="ca",condition="BootstrapRequired"`), "1x15 0x15", "critical", map[string]string{"job": "test", "namespace": "requestor-test", "cluster": "child", "consumer": "ca", "condition": "BootstrapRequired"}},
+		{"IssuerRenewalOverdue", series("kube_token_requestor_issuer_renewal_due_timestamp_seconds", `,cluster="child"`), "1x15 100000x15", "critical", map[string]string{"job": "test", "namespace": "requestor-test", "cluster": "child"}},
+		{"IssuerRenewalFailed", series("kube_token_requestor_issuer_renewal_total", `,cluster="child",result="Conflict"`), "0+1x15 15x15", "warning", map[string]string{"job": "test", "namespace": "requestor-test", "cluster": "child", "result": "Conflict"}},
 		{"IssuerRotationDue", series("kube_token_requestor_issuer_rotation_due_timestamp_seconds", `,cluster="child"`), "600x15 1000000x15", "warning", map[string]string{"job": "test", "namespace": "requestor-test", "cluster": "child"}},
 		{"ConsumerSafetyStop", series("kube_token_requestor_condition", `,cluster="child",consumer="ca",condition="SafetyStopped"`), "1x15 0x15", "critical", map[string]string{"job": "test", "namespace": "requestor-test", "cluster": "child", "consumer": "ca", "condition": "SafetyStopped"}},
 		{"StopUnconfirmed", series("kube_token_requestor_condition", `,cluster="child",consumer="ca",condition="StopUnconfirmed"`), "1x15 0x15", "critical", map[string]string{"job": "test", "namespace": "requestor-test", "cluster": "child", "consumer": "ca", "condition": "StopUnconfirmed"}},
@@ -60,7 +62,7 @@ func TestActiveAlertProfiles(t *testing.T) {
 		{"StaleOrMissingTarget", series("kube_token_requestor_registry_targets", ""), "2x15 0x15", "critical", nil},
 		{"StaleOrMissingTarget", series("kube_token_requestor_last_observed_timestamp_seconds", `,cluster="child",consumer="ca"`), "0x15 1200+60x15", "critical", target},
 	}
-	if len(rules) != 11 {
+	if len(rules) != 13 {
 		t.Fatal("new or missing alert requires a reviewed profile")
 	}
 	for _, tc := range cases {
