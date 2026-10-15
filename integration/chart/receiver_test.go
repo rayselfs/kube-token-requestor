@@ -108,7 +108,7 @@ func TestAlertmanagerReceiver(t *testing.T) {
 			expected[name] = alert{Labels: map[string]string{"alertname": name, "severity": rule["labels"].(map[string]any)["severity"].(string)}, Annotations: map[string]string{"summary": rule["annotations"].(map[string]any)["summary"].(string)}, StartsAt: start, EndsAt: time.Now().UTC().Add(10 * time.Minute)}
 		}
 	}
-	if len(expected) != 11 {
+	if len(expected) != 13 || expected["IssuerRenewalOverdue"].Labels == nil || expected["IssuerRenewalFailed"].Labels == nil {
 		t.Fatal("new or missing alert requires receiver review")
 	}
 	submit := func(resolved bool) {
@@ -157,5 +157,5 @@ func TestAlertmanagerReceiver(t *testing.T) {
 	await("firing")
 	submit(true)
 	await("resolved")
-	t.Log("all eleven alerts delivered firing and resolved through upstream Alertmanager to an isolated receiver; operator on-call acceptance remains separate")
+	t.Log("all thirteen alerts delivered firing and resolved through upstream Alertmanager to an isolated receiver; operator on-call acceptance remains separate")
 }
