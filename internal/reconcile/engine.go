@@ -379,6 +379,9 @@ func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config
 			return err
 		}
 		if err := issue.ValidateConsumer(ctx, client, c, consumer); err == nil {
+			if !entry.StopLatched {
+				entry.Condition = "Healthy"
+			}
 			return e.save(ctx, consumer.ID, &entry)
 		} else if err != provider.Auth {
 			return err

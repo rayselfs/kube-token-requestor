@@ -244,6 +244,11 @@ REQ-12: A pass MUST:
 5. Verify committed UID, trust, generation and data by in-memory readback; record sanitized status.
 6. Reload/validate that consumer by its configured policy; schedule from actual expiry with jitter.
 
+For a consumer outside its renewal window, successful issuer acquisition and actual consumer
+validation MUST clear recovered failure conditions to Healthy without reissuing credentials or
+changing expiry/lastSuccess. A durable stop latch MUST retain its condition until explicit
+acknowledgement; disabled targets and failed identity/permission checks MUST NOT report recovery.
+
 SecretIssuer has no source-credential mutation: long-lived issuer remains operator-managed.
 OAuth issuer credentials can be reacquired after controller restart and need not be persisted.
 Only validated CA tokens are durable output. Crash before publication leaves existing output;
