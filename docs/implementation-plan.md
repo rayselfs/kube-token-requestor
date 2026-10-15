@@ -2,11 +2,14 @@
 
 Status: M0 delivered; config, SecretIssuer, RFC 8693 exchange, TokenRequest, identity/rights checks and
 output CAS, shared runtime and source chart are implemented. Local two-child/three-consumer
-identity and restricted-RBAC acceptance passed. Paired RC6 delivery, full native multi-child/CA and deployed OAuth subject-recovery tests passed on
-amd64/arm64, including actual leader-loss failover. Twenty independent APIs/sixty actual CA Pods
-passed the amd64 capacity/outage profile. The separate real OAuth JWT API trust fixture also
-passed. Full failure, live scrape/on-call, adoption and
-long-run acceptance remain pending; these partial results do not claim complete production acceptance.
+identity and restricted-RBAC acceptance passed. Paired RC7 delivery, full native multi-child/CA and deployed OAuth subject-recovery tests passed on
+amd64/arm64, including actual leader loss and management API-node process outage. Twenty independent
+APIs/sixty actual CA Pods passed the amd64 capacity/outage profile. The actual denied emergency-stop
+profile kept five healthy peers renewing and preserved its operator-controlled safety latch.
+The frozen source is `8aad8fddf6a922269956d40f878976ff44909fc9`; natural-policy observation started
+at 2026-10-09T05:22:07Z and remains running, not accepted. Full failure, installation on-call,
+adoption and completed long-run acceptance remain pending; these results do not claim stable
+production acceptance. [Original receipts and scope](local-evidence.md#rc7-frozen-source-runtime-acceptance).
 Each milestone is a small PR from latest origin/main in an isolated worktree.
 No milestone authorizes a live cluster mutation or automatic production activation.
 

@@ -1,0 +1,21 @@
+{
+  "controllerVersion": "v0.1.0-rc.7",
+  "sourceCommit": "8aad8fddf6a922269956d40f878976ff44909fc9",
+  "harnessCommit": "7d1a8343b95dd2a31c013728fb238d9b89d82a5f",
+  "architecture": "arm64",
+  "managementKubernetes": "1.35.8",
+  "childKubernetes": "1.35.8",
+  "clusterAutoscaler": "1.35.2",
+  "provider": "SecretIssuer",
+  "reloadPolicy": "TokenFile",
+  "minimumManagementAPINodeProcessPauseSeconds": 90,
+  "measuredManagementAPIPauseSeconds": 106.062016109,
+  "measuredRecoverySeconds": 49.907471458,
+  "independentChildIdentityRemainedValid": true,
+  "sameActiveReadyCAPodNoRestarts": true,
+  "sameLeaseStatusDeploymentAndNodeUIDs": true,
+  "allThreeOutputsRenewedWithoutExpiryRollback": true,
+  "scope": "fresh synthetic Linux runner; empty read-only CAPI fleet",
+  "acceleratedLifetimeSeconds": 600,
+  "naturalLifetimeAcceptance": false
+}
