@@ -92,6 +92,20 @@ spec:
             severity: critical
           annotations:
             summary: Repair only the affected issuer or broker trust; never use admin fallback.
+        - alert: IssuerRenewalOverdue
+          expr: {{ printf "time() - kube_token_requestor_issuer_renewal_due_timestamp_seconds{%s} > 0" $selector | quote }}
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Restore automatic issuer renewal before source credentials expire; preserve all workers.
+        - alert: IssuerRenewalFailed
+          expr: {{ printf "increase(kube_token_requestor_issuer_renewal_total{%s,result!=\"Healthy\"}[10m]) > 0" $selector | quote }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Check named issuer self-mint, source CAS, API trust and source deadline.
         - alert: IssuerRotationDue
           expr: {{ printf "kube_token_requestor_issuer_rotation_due_timestamp_seconds{%s} - time() < 604800" $selector | quote }}
           labels:

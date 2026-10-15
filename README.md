@@ -29,7 +29,9 @@ HA. Enrollment is explicit; the service does not discover clusters or adopt admi
 
 Authentication is selected per workload cluster:
 
-1. `SecretIssuer`: a restricted issuer token held in a pre-existing management Secret.
+1. `SecretIssuer`: a restricted issuer token held in a pre-existing management Secret. The
+   opt-in, unreleased [renewable profile](docs/issuer-renewal.md) automatically renews both this short-lived
+   source and consumer tokens after one secure bootstrap; no periodic manual source rotation.
 2. `OAuthTokenExchange`: RFC 8693 exchange of a projected management workload token for a
    short-lived bearer credential trusted by the workload API.
 

@@ -67,3 +67,26 @@ func TestLivenessDetectsStalledControlLoop(t *testing.T) {
 		t.Fatal("healthy process reports dead")
 	}
 }
+
+func TestIssuerRenewalMetricIsSanitizedAndLeaderOnly(t *testing.T) {
+	m := &Metrics{}
+	m.Event("issuer", "child", "", "sensitive-canary")
+	m.Event("issuer", "child", "", "Conflict")
+	scrape := func() string {
+		w := httptest.NewRecorder()
+		m.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
+		return w.Body.String()
+	}
+	if strings.Contains(scrape(), "kube_token_requestor_issuer_renewal_total") {
+		t.Fatal("standby exports issuer renewal")
+	}
+	m.Leader.Store(true)
+	body := scrape()
+	if strings.Contains(body, "canary") || !strings.Contains(body, `kube_token_requestor_issuer_renewal_total{cluster="child",result="Conflict"} 1`) {
+		t.Fatal("source metric missing or unsafe")
+	}
+	m.Reset()
+	if strings.Contains(scrape(), "kube_token_requestor_issuer_renewal_total") {
+		t.Fatal("offboarded source metric retained")
+	}
+}

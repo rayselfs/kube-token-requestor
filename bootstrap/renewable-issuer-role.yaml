@@ -1,0 +1,26 @@
+# Optional, separately reviewed child grant for SecretIssuer provider.renewal only.
+# Apply after the base identity bootstrap; the controller never grants this itself.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: requestor-issuer-renewal
+  namespace: requestor-identity
+rules:
+  - apiGroups: [""]
+    resources: [serviceaccounts/token]
+    resourceNames: [issuer]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: requestor-issuer-renewal
+  namespace: requestor-identity
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: requestor-issuer-renewal
+subjects:
+  - kind: ServiceAccount
+    name: issuer
+    namespace: requestor-identity

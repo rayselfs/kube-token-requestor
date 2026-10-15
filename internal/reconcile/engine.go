@@ -29,7 +29,7 @@ type Engine struct {
 	Observe      func(cluster, consumer, result string, expiry time.Time)
 	State        func(string, string, status.Consumer)
 	Event        func(string, string, string, string)
-	IssuerMetric func(string, time.Time, time.Time)
+	IssuerMetric func(string, time.Time, time.Time, time.Time)
 	mu           sync.Mutex
 	blocked      map[string]string
 	throttled    map[string]throttle
@@ -185,15 +185,6 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 		} else {
 			attempted = true
 			identity, acquisition = selected.Acquire(ctx, c)
-			var limited *provider.Retry
-			if errors.As(acquisition, &limited) {
-				e.mu.Lock()
-				if e.throttled == nil {
-					e.throttled = map[string]throttle{}
-				}
-				e.throttled[c.ID] = throttle{revision: revision, until: e.Now().Add(min(limited.After, 5*time.Minute))}
-				e.mu.Unlock()
-			}
 		}
 		if attempted && c.Provider.Type == "OAuthTokenExchange" && e.Event != nil {
 			outcome := "Healthy"
@@ -202,16 +193,37 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 			}
 			e.Event("exchange", c.ID, "", outcome)
 		}
-		if acquisition == nil && e.IssuerMetric != nil {
-			e.IssuerMetric(c.ID, identity.Expires, identity.RotationDue)
-		}
 		if acquisition == nil {
 			issuer, acquisition = issue.Client(c.Endpoint, identity)
 		}
 		if acquisition == nil {
-			slice := c
-			slice.Consumers = c.Consumers[offset:end]
-			acquisition = issue.Issuer(ctx, issuer, slice)
+			acquisition = issue.IssuerForConsumers(ctx, issuer, c, nil)
+		}
+		observeIssuer := func() {
+			if e.IssuerMetric != nil {
+				var renewalDue time.Time
+				if c.Provider.Renewal != nil {
+					renewalDue = identity.Expires.Add(-time.Duration(c.Provider.Renewal.RenewBeforeSeconds) * time.Second)
+				}
+				e.IssuerMetric(c.ID, identity.Expires, identity.RotationDue, renewalDue)
+			}
+		}
+		if acquisition == nil {
+			// Retain the authenticated predecessor deadline even if renewal fails.
+			observeIssuer()
+			issuer, identity, acquisition = e.renewIssuer(ctx, c, generation, issuer, identity)
+			if acquisition == nil {
+				observeIssuer()
+			}
+		}
+		var limited *provider.Retry
+		if errors.As(acquisition, &limited) {
+			e.mu.Lock()
+			if e.throttled == nil {
+				e.throttled = map[string]throttle{}
+			}
+			e.throttled[c.ID] = throttle{revision: revision, until: e.Now().Add(min(limited.After, 5*time.Minute))}
+			e.mu.Unlock()
 		}
 		if acquisition == provider.Auth {
 			e.mu.Lock()

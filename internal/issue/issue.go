@@ -93,6 +93,12 @@ func NamedSA(ctx context.Context, client kubernetes.Interface, namespace string,
 }
 
 func Issuer(ctx context.Context, client kubernetes.Interface, c config.Cluster) error {
+	return IssuerForConsumers(ctx, client, c, c.Consumers)
+}
+
+// IssuerForConsumers audits all enrolled grants while bounding positive checks to this queue slice.
+// A renewed issuer needs its own identity/self-mint review; consumer checks continue on each slice.
+func IssuerForConsumers(ctx context.Context, client kubernetes.Interface, c config.Cluster, consumers []config.Consumer) error {
 	if err := Identity(ctx, client, c, c.ExpectedIssuer); err != nil {
 		return err
 	}
@@ -103,15 +109,12 @@ func Issuer(ctx context.Context, client kubernetes.Interface, c config.Cluster) 
 		if err := NamedSA(ctx, client, c.IdentityNamespace, *c.Provider.ServiceAccount); err != nil {
 			return err
 		}
-		if err := Permission(ctx, client, authz.ResourceAttributes{Namespace: c.IdentityNamespace, Verb: "create", Resource: "serviceaccounts", Subresource: "token", Name: c.Provider.ServiceAccount.Name}, false); err != nil {
+		if err := Permission(ctx, client, authz.ResourceAttributes{Namespace: c.IdentityNamespace, Verb: "create", Resource: "serviceaccounts", Subresource: "token", Name: c.Provider.ServiceAccount.Name}, c.Provider.Renewal != nil); err != nil {
 			return err
 		}
 	}
-	for _, consumer := range c.Consumers {
-		if err := NamedSA(ctx, client, c.IdentityNamespace, consumer.ServiceAccount); err != nil {
-			return err
-		}
-		if err := Permission(ctx, client, authz.ResourceAttributes{Namespace: c.IdentityNamespace, Verb: "create", Resource: "serviceaccounts", Subresource: "token", Name: consumer.ServiceAccount.Name}, true); err != nil {
+	for _, consumer := range consumers {
+		if err := ConsumerAccount(ctx, client, c, consumer); err != nil {
 			return err
 		}
 	}
@@ -190,8 +193,19 @@ func ValidateConsumer(ctx context.Context, client kubernetes.Interface, c config
 	return denied(ctx, client, c.IdentityNamespace)
 }
 
+// ConsumerAccount keeps account drift or a missing consumer grant local to that consumer.
+func ConsumerAccount(ctx context.Context, client kubernetes.Interface, c config.Cluster, consumer config.Consumer) error {
+	if err := NamedSA(ctx, client, c.IdentityNamespace, consumer.ServiceAccount); err != nil {
+		return err
+	}
+	return Permission(ctx, client, authz.ResourceAttributes{Namespace: c.IdentityNamespace, Verb: "create", Resource: "serviceaccounts", Subresource: "token", Name: consumer.ServiceAccount.Name}, true)
+}
+
 func Request(ctx context.Context, client kubernetes.Interface, c config.Cluster, consumer config.Consumer, ca []byte, now time.Time) (Candidate, error) {
 	var candidate Candidate
+	if err := ConsumerAccount(ctx, client, c, consumer); err != nil {
+		return candidate, err
+	}
 	expiration := c.Lifetime.RequestedSeconds
 	response, err := client.CoreV1().ServiceAccounts(c.IdentityNamespace).CreateToken(ctx, consumer.ServiceAccount.Name, &auth.TokenRequest{Spec: auth.TokenRequestSpec{Audiences: c.Audiences, ExpirationSeconds: &expiration}}, meta.CreateOptions{})
 	if err != nil {

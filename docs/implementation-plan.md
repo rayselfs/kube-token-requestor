@@ -131,3 +131,14 @@ and their CI passes. It does not mean controller/chart/image completion.
 M7 requires all applicable acceptance rows, approved matrix/owner, artifact verification and
 operating alert/recovery evidence. A release with unaccepted OAuth product integration explicitly
 limits its support to the accepted profile/fixtures; it never advertises arbitrary OIDC support.
+
+## Renewable SecretIssuer extension
+
+The opt-in [automatic source lifecycle](issuer-renewal.md) extends A04/A05/A07/A08/A09/A12/A13,
+A21/A22/A24; it is not retroactively accepted by earlier releases' consumer-token evidence.
+Implementation includes per-cluster scheduling independent of consumers, authenticated successor
+validation, fenced UID/RV CAS, no source-induced CA restart, explicit named self-mint and source
+PATCH, failure/response-loss/leader-restart tests and firing/resolved alert profiles.
+Before promotion, require intended-service evidence of source renewal, persisted successor after
+leader recovery and consumer renewal, with exact source/paired release binding. Expired-source
+rebootstrap and revocation remain explicit targeted recovery, never hidden fallback.

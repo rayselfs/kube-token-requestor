@@ -20,6 +20,8 @@ never bearer material, decoded JWTs, response bodies, exception messages or Secr
 | kube_token_requestor_token_expiry_timestamp_seconds | Gauge | cluster, consumer; actual CA expiry |
 | kube_token_requestor_last_success_timestamp_seconds | Gauge | cluster, consumer |
 | kube_token_requestor_issuer_rotation_due_timestamp_seconds | Gauge | cluster; SecretIssuer policy |
+| kube_token_requestor_issuer_renewal_due_timestamp_seconds | Gauge | cluster; only automatic issuer renewal, no OAuth/legacy series |
+| kube_token_requestor_issuer_renewal_total | Counter | cluster, result; complete automatic source renewal attempts |
 | kube_token_requestor_issuer_expiry_timestamp_seconds | Gauge | cluster; ONLY finite issuer credentials |
 | kube_token_requestor_condition | Gauge | cluster, consumer, fixed condition; 1 active |
 | kube_token_requestor_queue_depth | Gauge | bounded shared work backlog |
@@ -77,7 +79,7 @@ Every enrollment MUST identify an owning team in the operator's inventory, issue
 bootstrap approver and alert receiver. Release owner maintains compatibility and security policy.
 Company-specific names/escalation paths are external to this repository.
 
-### Routine issuer rotation (SecretIssuer)
+### Routine issuer rotation (legacy externally managed SecretIssuer)
 
 1. Confirm target UID, issuer SA and narrow grants, no simultaneous rotations/config changes.
 2. Through approved bootstrap channel, create replacement restricted credential. Keep payload
@@ -172,3 +174,11 @@ Check this capability on the management API before adoption. Kubernetes 1.35+ en
 default; do not mutate API-server/controller-manager feature gates through this controller.
 Existing named Deployment GET is sufficient; no Pod list, new RBAC or component is required.
 See [upstream termination accounting](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#terminating-pods).
+
+### Automatic issuer-source renewal
+
+For the opt-in renewable short-lived profile, [source renewal](issuer-renewal.md) replaces routine
+manual rotation. Track issuer expiry and `kube_token_requestor_issuer_renewal_total{result!="Healthy"}`
+in addition to consumer expiry. Leader restart resumes from the same source Secret; no durable
+credential is stored in status or metrics. If every source expires or is revoked, the enrollment
+reports BootstrapRequired and needs secure rebootstrap; do not add fallback authority.

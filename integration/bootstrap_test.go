@@ -86,3 +86,52 @@ func TestBootstrapHasNoWildcardOrUnrelatedWriteGrants(t *testing.T) {
 		t.Fatal("missing exact consumer TokenRequest grant")
 	}
 }
+
+func TestRenewalBootstrapGrantsOnlyNamedIssuerSelfMint(t *testing.T) {
+	f, err := os.Open("../bootstrap/renewable-issuer-role.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	decoder := yaml.NewYAMLOrJSONDecoder(f, 4096)
+	seenRole, seenBinding := false, false
+	for {
+		var raw json.RawMessage
+		if err := decoder.Decode(&raw); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		var kind struct {
+			Kind string `json:"kind"`
+		}
+		if json.Unmarshal(raw, &kind) != nil {
+			t.Fatal("invalid bootstrap")
+		}
+		switch kind.Kind {
+		case "Role":
+			var role rbac.Role
+			_ = json.Unmarshal(raw, &role)
+			if role.Namespace != "requestor-identity" || role.Name != "requestor-issuer-renewal" || len(role.Rules) != 1 {
+				t.Fatal("unexpected renewal role")
+			}
+			r := role.Rules[0]
+			if len(r.APIGroups) != 1 || r.APIGroups[0] != "" || len(r.Resources) != 1 || r.Resources[0] != "serviceaccounts/token" || len(r.ResourceNames) != 1 || r.ResourceNames[0] != "issuer" || len(r.Verbs) != 1 || r.Verbs[0] != "create" || len(r.NonResourceURLs) != 0 {
+				t.Fatal("renewal grant broader than named self-mint")
+			}
+			seenRole = true
+		case "RoleBinding":
+			var binding rbac.RoleBinding
+			_ = json.Unmarshal(raw, &binding)
+			if binding.Namespace != "requestor-identity" || binding.RoleRef.Kind != "Role" || binding.RoleRef.Name != "requestor-issuer-renewal" || len(binding.Subjects) != 1 || binding.Subjects[0].Kind != "ServiceAccount" || binding.Subjects[0].Namespace != "requestor-identity" || binding.Subjects[0].Name != "issuer" {
+				t.Fatal("renewal bound to unrelated subject")
+			}
+			seenBinding = true
+		default:
+			t.Fatal("renewal example must only grant named self-mint")
+		}
+	}
+	if !seenRole || !seenBinding {
+		t.Fatal("missing optional renewal grant/binding")
+	}
+}

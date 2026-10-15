@@ -101,6 +101,7 @@ type Provider struct {
 	Secret                *Ref            `json:"secret,omitempty"`
 	LongLived             *bool           `json:"longLived,omitempty"`
 	RotationPeriodSeconds int64           `json:"rotationPeriodSeconds,omitempty"`
+	Renewal               *Lifetime       `json:"renewal,omitempty"`
 	TokenEndpoint         string          `json:"tokenEndpoint,omitempty"`
 	TrustSecret           *Ref            `json:"trustSecret,omitempty"`
 	ClientID              string          `json:"clientID,omitempty"`
@@ -224,7 +225,7 @@ func exactFields(value any, typ reflect.Type) bool {
 		}
 		if typ == reflect.TypeOf(Provider{}) {
 			modes := map[string][]string{
-				"SecretIssuer":       {"type", "serviceAccount", "secret", "longLived", "rotationPeriodSeconds"},
+				"SecretIssuer":       {"type", "serviceAccount", "secret", "longLived", "rotationPeriodSeconds", "renewal"},
 				"OAuthTokenExchange": {"type", "tokenEndpoint", "trustSecret", "clientID", "clientSecret", "subjectTokenVolume", "subjectTokenAudience", "audience", "scopes", "acceptedMinSeconds", "acceptedMaxSeconds"},
 			}
 			mode, _ := fields["type"].(string)
@@ -233,7 +234,7 @@ func exactFields(value any, typ reflect.Type) bool {
 				allowed[key] = true
 			}
 			for key := range fields {
-				if !allowed[key] {
+				if !allowed[key] || (key == "renewal" && fields[key] == nil) {
 					return false
 				}
 			}
@@ -342,6 +343,9 @@ func (p Provider) valid(namespace string, principal Principal) bool {
 		if oauthFields || p.ServiceAccount == nil || !p.ServiceAccount.valid() || p.Secret == nil || p.LongLived == nil {
 			return false
 		}
+		if p.Renewal != nil && (*p.LongLived || !p.Renewal.valid() || p.Renewal.RenewBeforeSeconds <= p.Renewal.StopBeforeSeconds+p.Renewal.ClockSkewSeconds) {
+			return false
+		}
 		if *p.LongLived && (p.RotationPeriodSeconds <= 0 || p.RotationPeriodSeconds > 365*86400) {
 			return false
 		}
@@ -363,7 +367,7 @@ func (p Provider) valid(namespace string, principal Principal) bool {
 		}
 		return true
 	case "OAuthTokenExchange":
-		if p.ServiceAccount != nil || p.Secret != nil || p.LongLived != nil || p.RotationPeriodSeconds != 0 || strings.HasPrefix(principal.Username, "system:") {
+		if p.ServiceAccount != nil || p.Secret != nil || p.LongLived != nil || p.RotationPeriodSeconds != 0 || p.Renewal != nil || strings.HasPrefix(principal.Username, "system:") {
 			return false
 		}
 		for _, group := range principal.Groups {

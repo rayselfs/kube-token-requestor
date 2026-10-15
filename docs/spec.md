@@ -54,7 +54,8 @@ The interface is bearer-only in v1. A platform returning mTLS certificates requi
 contract extension, not undocumented conversion to a token. It is not a generic OIDC adapter.
 
 Controller-owned lifetime scheduling, credential validation, TokenRequest and publication are
-shared. SecretIssuer's long-lived material is replaced by the operator's rotation workflow;
+shared. SecretIssuer's explicit renewable short-lived profile maintains its own issuer source;
+legacy long-lived material is replaced by the operator's rotation workflow;
 OAuthTokenExchange refresh means reacquiring via exchange, not renewing a CA JWT in place.
 Provider errors MUST be classified as retryable transport/rate-limit, configuration/trust,
 authentication/authorization or bootstrap-required. Response bodies MUST NOT enter errors.
@@ -66,15 +67,18 @@ before acquisition or copying trust bytes into consumer Secrets.
 
 REQ-06: Read only a pinned management Secret (type Opaque, exact keys `ca.crt`, `token`). Pin
 Secret UID, public CA hash and workload-cluster kube-system UID. Long-lived tokens MUST be
-explicitly declared; short-lived source tokens MAY be used but this provider MUST NOT pretend
-to keep them alive. This service does not self-renew source issuer tokens in v1.
+explicitly declared. An optional `provider.renewal` lifetime policy enables automatic renewal
+of a short-lived source; omission retains externally managed source behavior. It MUST NOT be
+combined with longLived=true or OAuthTokenExchange. See [renewable source contract](issuer-renewal.md).
 
 The issuer is a dedicated ServiceAccount distinct from every CA consumer. Its authority is only
 named `serviceaccounts/token` creation for enrolled CA SAs plus required identity checks.
-It MUST NOT issue for itself or arbitrary SAs, manage RBAC, read application Secrets, modify
+Only the explicit renewable profile MAY additionally mint for its own pinned issuer SA.
+Non-renewable profiles MUST reject self-mint. No profile may mint for arbitrary SAs, manage RBAC,
+read application Secrets, modify
 Nodes or use cluster-admin. Replacing the issuer MUST retain the pinned Secret UID using CAS.
-The source carries `token-requestor.io/rotated-at` (RFC3339). Missing/future/overdue rotation
-metadata fails acquisition. Default rotation policy is 90 days, owned by the enrolling operator;
+A long-lived source carries `token-requestor.io/rotated-at` (RFC3339). Missing/future/overdue
+rotation metadata fails long-lived acquisition. Default rotation policy is 90 days, owned by the enrolling operator;
 policy compliance MUST be
 tracked independently of token expiry. A manually created long-lived SA token is not automatically
 rotated and does not expire by design. Platform credential policy may require a shorter period.
@@ -150,7 +154,8 @@ Global fields: schemaVersion, managementUID and clusters[]. Cluster fields:
   requires leaderElectionLease namespace/name/UID in the enrolled identity namespace; maxReplicas=2
   requires that profile. The legacy ca-read-events profile forbids a Lease declaration.
 
-Provider union: SecretIssuer includes issuer SA name/UID and Secret ref. OAuthTokenExchange
+Provider union: SecretIssuer includes issuer SA name/UID and Secret ref, explicit longLived,
+and optional renewal (the same complete Lifetime fields, independently validated for the source). OAuthTokenExchange
 includes tokenEndpoint, TLS trust Secret ref, clientID/clientSecret ref, projected subject token
 volume name/audience, requested audience/scope and accepted issuer-credential TTL bounds.
 All refs carry namespace/name/UID; referenced Secret values never appear in registry data.
@@ -249,9 +254,11 @@ validation MUST clear recovered failure conditions to Healthy without reissuing 
 changing expiry/lastSuccess. A durable stop latch MUST retain its condition until explicit
 acknowledgement; disabled targets and failed identity/permission checks MUST NOT report recovery.
 
-SecretIssuer has no source-credential mutation: long-lived issuer remains operator-managed.
-OAuth issuer credentials can be reacquired after controller restart and need not be persisted.
-Only validated CA tokens are durable output. Crash before publication leaves existing output;
+SecretIssuer source mutation is permitted only by the explicit renewable short-lived profile:
+validate the successor against the child API, recheck leader/config, and CAS only the pinned source
+token with strictly increasing expiry. It requires no CA interruption. Legacy long-lived sources
+remain operator-managed. OAuth credentials can be reacquired after restart and need no persistence.
+Only validated CA tokens and explicitly renewable issuer successors are durable credentials. Crash before publication leaves existing output;
 crash between consumers retries incomplete ones without stopping healthy consumers. Leadership
 and config cancellation plus CAS/lifetime ordering are required; exact-once is not promised.
 Go does not guarantee complete in-memory secret zeroization; clear material best-effort.
