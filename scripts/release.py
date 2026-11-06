@@ -96,7 +96,7 @@ def manifest(version, commit, image, chart, image_digest, chart_digest, index, a
   return {
     'formatVersion': 1, 'controllerVersion': version, 'chartVersion': version[1:],
     'configSchemaVersion': 1, 'sourceCommit': commit, 'supportStatus': support,
-    'toolchain': {'go': '1.26.9', 'clientGo': '0.35.9', 'helm': '4.1.3', 'trivy': '0.75.0',
+    'toolchain': {'go': '1.26.10', 'clientGo': '0.35.9', 'helm': '4.1.3', 'trivy': '0.75.0',
            'cosign': '3.1.3', 'promtool': '3.15.0'},
     'image': {'reference': image, 'indexDigest': image_digest, 'platformDigests': platforms},
     'chart': {'reference': chart, 'ociDigest': chart_digest,

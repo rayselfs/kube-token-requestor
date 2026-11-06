@@ -74,6 +74,11 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 Specification checks validate documentation links and the synthetic example. Unit/race checks
 cover implementation behavior; these commands alone do not establish production acceptance.
 
+## Unreleased Access extension
+
+An opt-in [Access token publisher](docs/access-consumer.md) reuses the issuer and CAS pipeline.
+It does not provide gateway admission or stream revocation and is not part of v0.2.0.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

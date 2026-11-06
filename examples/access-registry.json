@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "managementUID": "00000000-0000-0000-0000-000000000001",
+  "clusters": [
+    {
+      "id": "workload-a",
+      "enabled": false,
+      "endpoint": "https://workload-a.example.invalid:6443",
+      "kubeSystemUID": "00000000-0000-0000-0000-000000000064",
+      "caSHA256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "identityNamespace": "ca-identities",
+      "audiences": [
+        "https://kubernetes.default.svc"
+      ],
+      "expectedIssuer": {
+        "username": "system:serviceaccount:ca-identities:issuer",
+        "groups": [
+          "system:serviceaccounts",
+          "system:serviceaccounts:ca-identities",
+          "system:authenticated"
+        ]
+      },
+      "lifetime": {
+        "requestedSeconds": 86400,
+        "acceptedMinSeconds": 79200,
+        "acceptedMaxSeconds": 90000,
+        "renewBeforeSeconds": 43200,
+        "stopBeforeSeconds": 1800,
+        "clockSkewSeconds": 60
+      },
+      "consumers": [
+        {
+          "id": "workload-a-ca-1",
+          "enabled": false,
+          "serviceAccount": {
+            "name": "ca-1",
+            "uid": "00000000-0000-0000-0000-00000000006f"
+          },
+          "secret": {
+            "namespace": "workload-a",
+            "name": "ca-1-child-token",
+            "uid": "00000000-0000-0000-0000-000000000079"
+          },
+          "reloadPolicy": "TokenFile",
+          "permissionProfile": "access-impersonation",
+          "access": {
+            "users": [
+              "reader@example.invalid"
+            ],
+            "groups": [
+              "access-readers"
+            ]
+          }
+        }
+      ],
+      "provider": {
+        "type": "SecretIssuer",
+        "serviceAccount": {
+          "name": "issuer",
+          "uid": "00000000-0000-0000-0000-000000000065"
+        },
+        "secret": {
+          "namespace": "workload-a",
+          "name": "ca-issuer",
+          "uid": "00000000-0000-0000-0000-000000000066"
+        },
+        "longLived": true,
+        "rotationPeriodSeconds": 7776000
+      }
+    }
+  ]
+}

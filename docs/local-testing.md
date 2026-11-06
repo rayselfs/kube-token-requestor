@@ -7,7 +7,7 @@ nodes outside these names. Generated kubeconfigs and credentials stay in a prote
 directory outside the source checkout. Tokens are created by real local Kubernetes APIs and
 remain in API Secrets or process memory; test output contains counts/conditions only.
 
-Pinned baseline: kind v0.33.0, node v1.35.8, Go 1.26.9/client-go v0.35.9, Helm v4.1.3,
+Pinned baseline: kind v0.33.0, node v1.35.8, Go 1.26.10/client-go v0.35.9, Helm v4.1.3,
 Prometheus/promtool v3.15.0. Actual upstream CA baseline is v1.35.2. Record each actual digest
 from registry outputs and pass it explicitly; synthetic stopped-image hashes are not releases.
 

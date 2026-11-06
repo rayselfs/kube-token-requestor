@@ -79,6 +79,20 @@ spec:
             severity: critical
           annotations:
             summary: Validate replacement, acknowledge only this stop, then explicitly resume the CA.
+        {{- $hasAccess := false }}
+        {{- range .Values.registry.clusters }}
+        {{- range .consumers }}
+        {{- if .access }}{{- $hasAccess = true }}{{- end }}
+        {{- end }}
+        {{- end }}
+        {{- if $hasAccess }}
+        - alert: AccessCredentialBlocked
+          expr: {{ printf "kube_token_requestor_condition{%s,condition=\"AccessBlocked\"} == 1" $selector | quote }}
+          labels:
+            severity: critical
+          annotations:
+            summary: Contain the affected gateway route and streams; recover its credential independently. No CA was stopped.
+        {{- end }}
         - alert: StopUnconfirmed
           expr: {{ printf "kube_token_requestor_condition{%s,condition=\"StopUnconfirmed\"} == 1" $selector | quote }}
           labels:
