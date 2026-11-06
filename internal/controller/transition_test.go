@@ -20,6 +20,9 @@ func TestRegistryCannotRebindExistingIdentity(t *testing.T) {
 		name   string
 		mutate func(*config.Registry)
 	}{
+		{"consumer kind", func(r *config.Registry) {
+			r.Clusters[0].Consumers[0].Access = &config.Access{Users: []string{"reader@example.invalid"}}
+		}},
 		{"active lifetime", func(r *config.Registry) { r.Clusters[0].Lifetime.RequestedSeconds-- }},
 		{"child UID", func(r *config.Registry) { r.Clusters[0].KubeSystemUID = r.Clusters[1].KubeSystemUID }},
 		{"child endpoint", func(r *config.Registry) { r.Clusters[0].Endpoint = r.Clusters[1].Endpoint }},

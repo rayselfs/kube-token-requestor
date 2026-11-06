@@ -88,10 +88,36 @@ type Consumer struct {
 	Enabled             *bool          `json:"enabled"`
 	ServiceAccount      ServiceAccount `json:"serviceAccount"`
 	Secret              Ref            `json:"secret"`
-	CADeployment        Deployment     `json:"caDeployment"`
+	CADeployment        Deployment     `json:"caDeployment,omitzero"`
+	Access              *Access        `json:"access,omitempty"`
 	ReloadPolicy        string         `json:"reloadPolicy"`
 	PermissionProfile   string         `json:"permissionProfile"`
 	LeaderElectionLease *Ref           `json:"leaderElectionLease,omitempty"`
+}
+
+// Access is a finite impersonation policy; no workload lifecycle authority is implied.
+type Access struct {
+	Users  []string `json:"users"`
+	Groups []string `json:"groups"`
+}
+
+func (c Consumer) IsAccess() bool { return c.Access != nil }
+
+func (a Access) valid() bool {
+	if len(a.Users) == 0 || len(a.Users) > 100 || len(a.Groups) > 100 || !distinctText(a.Users) {
+		return false
+	}
+	if len(a.Groups) > 0 && !distinctText(a.Groups) {
+		return false
+	}
+	for _, names := range [][]string{a.Users, a.Groups} {
+		for _, n := range names {
+			if strings.HasPrefix(n, "system:") || strings.ContainsAny(n, "*\r\n") {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Provider is decoded as a discriminated union; validate rejects fields from another mode.
@@ -252,7 +278,7 @@ func exactFields(value any, typ reflect.Type) bool {
 		}
 		for key, item := range fields {
 			fieldType, known := allowed[key]
-			if item == nil && (typ == reflect.TypeOf(Deployment{}) && key == "maxReplicas" || typ == reflect.TypeOf(Consumer{}) && key == "leaderElectionLease") {
+			if item == nil && (typ == reflect.TypeOf(Deployment{}) && key == "maxReplicas" || typ == reflect.TypeOf(Consumer{}) && (key == "leaderElectionLease" || key == "access")) {
 				return false
 			}
 			if !known || !exactFields(item, fieldType) {
@@ -423,6 +449,13 @@ func (r *Registry) Validate() error {
 			ref := consumer.Secret
 			key := ref.Namespace + "/" + ref.Name
 			saKey := c.KubeSystemUID + "/" + c.IdentityNamespace + "/" + consumer.ServiceAccount.Name
+			if consumer.IsAccess() {
+				if !name(consumer.ID) || ids[consumer.ID] || !consumer.ServiceAccount.valid() || saIDs[saKey] || !ref.valid() || outputRefs[key] || sourceRefs[key] != "" || consumer.Enabled == nil || (*consumer.Enabled && !*c.Enabled) || consumer.CADeployment != (Deployment{}) || consumer.LeaderElectionLease != nil || consumer.ReloadPolicy != "TokenFile" || consumer.PermissionProfile != "access-impersonation" || !consumer.Access.valid() {
+					return ErrInvalid
+				}
+				ids[consumer.ID], outputRefs[key], saIDs[saKey] = true, true, true
+				continue
+			}
 			dep := consumer.CADeployment
 			depKey := dep.Namespace + "/" + dep.Name
 			if !name(consumer.ID) || ids[consumer.ID] || !consumer.ServiceAccount.valid() || saIDs[saKey] || !ref.valid() ||

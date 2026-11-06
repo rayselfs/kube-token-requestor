@@ -75,7 +75,7 @@ func boolean(value bool) float64 {
 	return 0
 }
 
-var conditions = []string{"Healthy", "Transport", "TrustRejected", "BootstrapRequired", "Conflict", "SafetyStopped", "StopUnconfirmed"}
+var conditions = []string{"Healthy", "Transport", "TrustRejected", "BootstrapRequired", "Conflict", "SafetyStopped", "StopUnconfirmed", "CredentialPublished", "AccessBlocked", "AccessDisabled"}
 
 func result(value string) string {
 	for _, v := range conditions {

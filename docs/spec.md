@@ -332,3 +332,9 @@ child agents, SaaS dependencies, runtime plugins and automatic provider fallback
 - [Named RBAC resources/subresources](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
 - [Leader election fencing limitation](https://pkg.go.dev/k8s.io/client-go/tools/leaderelection)
 - [RFC 8693 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693.html)
+
+## Unreleased Access extension
+
+The explicit [Access consumer contract](access-consumer.md) extends credential publication only.
+Existing CA lifecycle requirements remain unchanged; Access does not inherit scale authority,
+and CredentialPublished is not gateway Ready or proof of stream revocation.

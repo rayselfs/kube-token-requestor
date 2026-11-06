@@ -512,7 +512,8 @@
                     "permissionProfile": {
                       "enum": [
                         "ca-read-events",
-                        "ca-read-events-lease"
+                        "ca-read-events-lease",
+                        "access-impersonation"
                       ]
                     },
                     "leaderElectionLease": {
@@ -539,6 +540,46 @@
                         "name",
                         "uid"
                       ]
+                    },
+                    "access": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "users",
+                        "groups"
+                      ],
+                      "properties": {
+                        "users": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 100,
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^[^*\\r\\n\\t\\x00 ]+$",
+                            "not": {
+                              "pattern": "^system:"
+                            },
+                            "maxLength": 2048
+                          }
+                        },
+                        "groups": {
+                          "type": "array",
+                          "minItems": 0,
+                          "maxItems": 100,
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^[^*\\r\\n\\t\\x00 ]+$",
+                            "not": {
+                              "pattern": "^system:"
+                            },
+                            "maxLength": 2048
+                          }
+                        }
+                      }
                     }
                   },
                   "required": [
@@ -546,7 +587,6 @@
                     "enabled",
                     "serviceAccount",
                     "secret",
-                    "caDeployment",
                     "reloadPolicy",
                     "permissionProfile"
                   ],
@@ -585,7 +625,10 @@
                               "maxReplicas"
                             ]
                           }
-                        }
+                        },
+                        "required": [
+                          "caDeployment"
+                        ]
                       },
                       "then": {
                         "properties": {
@@ -596,6 +639,50 @@
                         "required": [
                           "leaderElectionLease"
                         ]
+                      }
+                    },
+                    {
+                      "if": {
+                        "required": [
+                          "access"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "permissionProfile": {
+                            "const": "access-impersonation"
+                          },
+                          "reloadPolicy": {
+                            "const": "TokenFile"
+                          }
+                        },
+                        "not": {
+                          "anyOf": [
+                            {
+                              "required": [
+                                "caDeployment"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "leaderElectionLease"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "else": {
+                        "required": [
+                          "caDeployment"
+                        ],
+                        "properties": {
+                          "permissionProfile": {
+                            "enum": [
+                              "ca-read-events",
+                              "ca-read-events-lease"
+                            ]
+                          }
+                        }
                       }
                     }
                   ]

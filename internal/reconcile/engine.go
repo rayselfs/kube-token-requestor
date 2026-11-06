@@ -109,6 +109,9 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 	preflightFailures := map[string]error{}
 	preflightNotified := map[string]bool{}
 	for _, consumer := range c.Consumers[offset:end] {
+		if consumer.IsAccess() {
+			continue
+		}
 		if ctx.Err() != nil {
 			return provider.Transport
 		}
@@ -300,6 +303,9 @@ func (e *Engine) Slice(ctx context.Context, c config.Cluster, generation string,
 
 func (e *Engine) consumer(ctx context.Context, c config.Cluster, consumer config.Consumer, generation string, entry status.Consumer,
 	issuer kubernetes.Interface, identity provider.IssuerCredential, acquisition error, enabled bool) error {
+	if consumer.IsAccess() {
+		return e.access(ctx, c, consumer, generation, entry, issuer, identity, acquisition, enabled)
+	}
 	output, err := publish.Read(ctx, e.Management, consumer)
 	if err != nil {
 		return err

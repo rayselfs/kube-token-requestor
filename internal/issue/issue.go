@@ -147,6 +147,22 @@ func ValidateConsumer(ctx context.Context, client kubernetes.Interface, c config
 	if err := NamedSA(ctx, client, c.IdentityNamespace, consumer.ServiceAccount); err != nil {
 		return err
 	}
+	if consumer.IsAccess() {
+		for resource, names := range map[string][]string{"users": consumer.Access.Users, "groups": consumer.Access.Groups} {
+			for _, name := range names {
+				if err := Permission(ctx, client, authz.ResourceAttributes{Verb: "impersonate", Resource: resource, Name: name}, true); err != nil {
+					return err
+				}
+			}
+			if err := Permission(ctx, client, authz.ResourceAttributes{Verb: "impersonate", Resource: resource, Name: "system:masters"}, false); err != nil {
+				return err
+			}
+		}
+		if err := Permission(ctx, client, authz.ResourceAttributes{Namespace: c.IdentityNamespace, Verb: "create", Resource: "serviceaccounts", Subresource: "token", Name: consumer.ServiceAccount.Name}, false); err != nil {
+			return err
+		}
+		return denied(ctx, client, c.IdentityNamespace)
+	}
 	if lease := consumer.LeaderElectionLease; lease != nil {
 		if lease.Namespace != c.IdentityNamespace || consumer.PermissionProfile != "ca-read-events-lease" {
 			return provider.Trust
