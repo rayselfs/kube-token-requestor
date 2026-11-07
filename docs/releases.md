@@ -206,3 +206,12 @@ M5 after executable implementation and checks exist; production acceptance requi
 
 - [GitHub image publishing](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
 - [Helm OCI registries](https://helm.sh/docs/topics/registries/)
+
+## Incomplete GitOps candidate v0.3.0-rc.2
+
+The [rc.2 workflow](https://github.com/rayselfs/kube-token-requestor/actions/runs/42393837026)
+built source `e4e7d0057a049ea94189b3b516e13fd51a0bc863` but failed its HIGH/CRITICAL image
+scan on CVE-2026-78661 in golang.org/x/net v0.60.0 (fixed in v0.62.0). The image tag was already
+pushed; chart packaging, signatures and native release smoke were not completed. This candidate
+must not be installed or treated as a paired verified release. Preserve its immutable bytes and
+failure receipt; the corrected dependency must ship under a new version, not overwrite rc.2.
