@@ -10,6 +10,7 @@ import (
 	auth "k8s.io/api/authentication/v1"
 	authz "k8s.io/api/authorization/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -147,6 +148,9 @@ func ValidateConsumer(ctx context.Context, client kubernetes.Interface, c config
 	if err := NamedSA(ctx, client, c.IdentityNamespace, consumer.ServiceAccount); err != nil {
 		return err
 	}
+	if consumer.IsGitOps() {
+		return validateGitOps(ctx, client, c, consumer)
+	}
 	if consumer.IsAccess() {
 		for resource, names := range map[string][]string{"users": consumer.Access.Users, "groups": consumer.Access.Groups} {
 			for _, name := range names {
@@ -223,7 +227,19 @@ func Request(ctx context.Context, client kubernetes.Interface, c config.Cluster,
 		return candidate, err
 	}
 	expiration := c.Lifetime.RequestedSeconds
-	response, err := client.CoreV1().ServiceAccounts(c.IdentityNamespace).CreateToken(ctx, consumer.ServiceAccount.Name, &auth.TokenRequest{Spec: auth.TokenRequestSpec{Audiences: c.Audiences, ExpirationSeconds: &expiration}}, meta.CreateOptions{})
+	spec := auth.TokenRequestSpec{Audiences: c.Audiences, ExpirationSeconds: &expiration}
+	if consumer.IsGitOps() {
+		ref := consumer.GitOps.BoundSecret
+		secret, err := client.CoreV1().Secrets(ref.Namespace).Get(ctx, ref.Name, meta.GetOptions{})
+		if err != nil {
+			return candidate, provider.Classify(err)
+		}
+		if string(secret.UID) != ref.UID {
+			return candidate, provider.Trust
+		}
+		spec.BoundObjectRef = &auth.BoundObjectReference{Kind: "Secret", APIVersion: "v1", Name: ref.Name, UID: types.UID(ref.UID)}
+	}
+	response, err := client.CoreV1().ServiceAccounts(c.IdentityNamespace).CreateToken(ctx, consumer.ServiceAccount.Name, &auth.TokenRequest{Spec: spec}, meta.CreateOptions{})
 	if err != nil {
 		return candidate, provider.Classify(err)
 	}
@@ -231,7 +247,7 @@ func Request(ctx context.Context, client kubernetes.Interface, c config.Cluster,
 	if err != nil || claims.Lifetime(now, time.Duration(c.Lifetime.ClockSkewSeconds)*time.Second, c.Lifetime.AcceptedMinSeconds, c.Lifetime.AcceptedMaxSeconds) != nil ||
 		!credential.SameSet(claims.Audience, c.Audiences) || claims.Subject != "system:serviceaccount:"+c.IdentityNamespace+":"+consumer.ServiceAccount.Name ||
 		claims.Kubernetes.Namespace != c.IdentityNamespace || claims.Kubernetes.ServiceAccount.Name != consumer.ServiceAccount.Name || claims.Kubernetes.ServiceAccount.UID != consumer.ServiceAccount.UID ||
-		claims.Expires != response.Status.ExpirationTimestamp.Unix() {
+		claims.Expires != response.Status.ExpirationTimestamp.Unix() || !BoundClaims(claims, consumer) {
 		return candidate, provider.Auth
 	}
 	consumerClient, err := Client(c.Endpoint, provider.IssuerCredential{Bearer: response.Status.Token, CA: ca})

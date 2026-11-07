@@ -82,3 +82,10 @@ It does not provide gateway admission or stream revocation and is not part of v0
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+## GitOps credential extension
+
+An opt-in [GitOps publisher](docs/gitops-consumer.md) delivers Secret-bound tokens to an existing,
+UID-pinned Argo cluster Secret. The initial profile permits a named ConfigMap update in one
+namespace and never scales a workload. It requires an explicit credential-writer handover;
+local native API tests do not establish Argo reload or production acceptance.

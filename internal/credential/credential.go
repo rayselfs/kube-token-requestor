@@ -38,7 +38,11 @@ type Claims struct {
 	Issued     int64    `json:"iat"`
 	NotBefore  int64    `json:"nbf"`
 	Kubernetes struct {
-		Namespace      string `json:"namespace"`
+		Namespace string `json:"namespace"`
+		Secret    struct {
+			Name string `json:"name"`
+			UID  string `json:"uid"`
+		} `json:"secret"`
 		ServiceAccount struct {
 			Name string `json:"name"`
 			UID  string `json:"uid"`

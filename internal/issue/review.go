@@ -63,7 +63,29 @@ func reviewPermissions(ctx context.Context, client kubernetes.Interface, c confi
 							allowed = namedOnly(rule.ResourceNames, consumer.Access.Groups)
 						}
 					}
-					if consumer != nil && !consumer.IsAccess() {
+					if consumer == nil && group == "" && resource == "secrets" && verb == "get" {
+						names := []string{}
+						for _, item := range c.Consumers {
+							if item.IsGitOps() {
+								names = append(names, item.GitOps.BoundSecret.Name)
+							}
+						}
+						allowed = namedOnly(rule.ResourceNames, names)
+					}
+					if consumer != nil && consumer.IsGitOps() {
+						if group == "" && resource == "serviceaccounts" && verb == "get" {
+							allowed = namedOnly(rule.ResourceNames, []string{consumer.ServiceAccount.Name})
+						}
+						if group == "" && resource == "configmaps" {
+							if verb == "get" || verb == "list" || verb == "watch" {
+								allowed = true
+							}
+							if verb == "patch" || verb == "update" {
+								allowed = namedOnly(rule.ResourceNames, []string{consumer.GitOps.ConfigMap})
+							}
+						}
+					}
+					if consumer != nil && !consumer.CredentialOnly() {
 						if lease := consumer.LeaderElectionLease; lease != nil && consumer.PermissionProfile == "ca-read-events-lease" &&
 							group == "coordination.k8s.io" && resource == "leases" && (verb == "get" || verb == "update") {
 							allowed = namedOnly(rule.ResourceNames, []string{lease.Name})

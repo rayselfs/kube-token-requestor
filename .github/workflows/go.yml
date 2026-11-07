@@ -51,3 +51,15 @@ jobs:
       - run: go run ./cmd/kube-token-requestor validate-config < examples/registry.json
       - name: Check formatting
         run: test -z "$(gofmt -l cmd internal integration)"
+      - name: GitOps native API contract
+        env:
+          REQUESTOR_GITOPS_TEST_KUBECONFIG: ${{ runner.temp }}/gitops-kubeconfig
+        run: |
+          go install sigs.k8s.io/kind@v0.33.0
+          kind create cluster --name requestor-gitops-20261108 --kubeconfig "$REQUESTOR_GITOPS_TEST_KUBECONFIG" --image kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0 --wait 2m
+          chmod 600 "$REQUESTOR_GITOPS_TEST_KUBECONFIG"
+          go test ./internal/reconcile -run '^TestGitOpsNativeAPI$' -v -count=1
+      - name: Remove only the GitOps fixture
+        if: always()
+        run: |
+          if command -v kind >/dev/null; then kind delete cluster --name requestor-gitops-20261108; fi
