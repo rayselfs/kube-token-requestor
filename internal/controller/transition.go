@@ -52,7 +52,7 @@ func (r *runtime) transition(ctx context.Context, next *config.Registry) error {
 				}
 				continue
 			}
-			if consumer.IsAccess() != enrolled.IsAccess() || !reflect.DeepEqual(consumer.Access, enrolled.Access) {
+			if consumer.IsAccess() != enrolled.IsAccess() || !reflect.DeepEqual(consumer.Access, enrolled.Access) || !reflect.DeepEqual(consumer.GitOps, enrolled.GitOps) {
 				return provider.Trust
 			}
 			if !reflect.DeepEqual(consumer.Secret, enrolled.Secret) || !reflect.DeepEqual(consumer.ServiceAccount, enrolled.ServiceAccount) || consumer.CADeployment.Namespace != enrolled.CADeployment.Namespace || consumer.CADeployment.Name != enrolled.CADeployment.Name || consumer.CADeployment.UID != enrolled.CADeployment.UID {
@@ -74,8 +74,8 @@ func (r *runtime) drained(ctx context.Context, consumer config.Consumer) error {
 	if *consumer.Enabled {
 		return provider.Trust
 	}
-	// Access retirement needs external route/stream revocation; never infer it from token expiry.
-	if consumer.IsAccess() {
+	// Credential-only retirement needs external consumer containment; token expiry is insufficient.
+	if consumer.CredentialOnly() {
 		return provider.Trust
 	}
 	d, err := r.client.AppsV1().Deployments(consumer.CADeployment.Namespace).Get(ctx, consumer.CADeployment.Name, meta.GetOptions{})

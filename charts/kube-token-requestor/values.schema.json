@@ -506,14 +506,16 @@
                     "reloadPolicy": {
                       "enum": [
                         "TokenFile",
-                        "StopStart"
+                        "StopStart",
+                        "ArgoSecret"
                       ]
                     },
                     "permissionProfile": {
                       "enum": [
                         "ca-read-events",
                         "ca-read-events-lease",
-                        "access-impersonation"
+                        "access-impersonation",
+                        "gitops-configmap"
                       ]
                     },
                     "leaderElectionLease": {
@@ -580,6 +582,67 @@
                           }
                         }
                       }
+                    },
+                    "gitops": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "project",
+                        "namespace",
+                        "configMap",
+                        "enrollmentUID",
+                        "boundSecret"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                        },
+                        "project": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                        },
+                        "configMap": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 253,
+                          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                        },
+                        "enrollmentUID": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "boundSecret": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "namespace": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 253,
+                              "pattern": "^[a-z0-9][a-z0-9.-]*$"
+                            },
+                            "uid": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                            }
+                          },
+                          "required": [
+                            "namespace",
+                            "name",
+                            "uid"
+                          ]
+                        }
+                      }
                     }
                   },
                   "required": [
@@ -644,20 +707,25 @@
                     {
                       "if": {
                         "required": [
-                          "access"
+                          "gitops"
                         ]
                       },
                       "then": {
                         "properties": {
                           "permissionProfile": {
-                            "const": "access-impersonation"
+                            "const": "gitops-configmap"
                           },
                           "reloadPolicy": {
-                            "const": "TokenFile"
+                            "const": "ArgoSecret"
                           }
                         },
                         "not": {
                           "anyOf": [
+                            {
+                              "required": [
+                                "access"
+                              ]
+                            },
                             {
                               "required": [
                                 "caDeployment"
@@ -672,15 +740,52 @@
                         }
                       },
                       "else": {
-                        "required": [
-                          "caDeployment"
-                        ],
-                        "properties": {
-                          "permissionProfile": {
-                            "enum": [
-                              "ca-read-events",
-                              "ca-read-events-lease"
+                        "if": {
+                          "required": [
+                            "access"
+                          ]
+                        },
+                        "then": {
+                          "properties": {
+                            "permissionProfile": {
+                              "const": "access-impersonation"
+                            },
+                            "reloadPolicy": {
+                              "const": "TokenFile"
+                            }
+                          },
+                          "not": {
+                            "anyOf": [
+                              {
+                                "required": [
+                                  "caDeployment"
+                                ]
+                              },
+                              {
+                                "required": [
+                                  "leaderElectionLease"
+                                ]
+                              }
                             ]
+                          }
+                        },
+                        "else": {
+                          "required": [
+                            "caDeployment"
+                          ],
+                          "properties": {
+                            "permissionProfile": {
+                              "enum": [
+                                "ca-read-events",
+                                "ca-read-events-lease"
+                              ]
+                            },
+                            "reloadPolicy": {
+                              "enum": [
+                                "TokenFile",
+                                "StopStart"
+                              ]
+                            }
                           }
                         }
                       }

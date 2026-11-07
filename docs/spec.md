@@ -338,3 +338,10 @@ child agents, SaaS dependencies, runtime plugins and automatic provider fallback
 The explicit [Access consumer contract](access-consumer.md) extends credential publication only.
 Existing CA lifecycle requirements remain unchanged; Access does not inherit scale authority,
 and CredentialPublished is not gateway Ready or proof of stream revocation.
+
+## Explicit GitOps consumer extension
+
+The optional [GitOps publication contract](gitops-consumer.md) implements a bounded ConfigMap-only
+consumer using the existing issuer lifecycle. It publishes to a pre-existing Argo cluster Secret
+and cannot operate workload replicas. It preserves REQ-03 separation, native target authorization,
+identity pins and CAS; CredentialPublished does not establish Argo application readiness.

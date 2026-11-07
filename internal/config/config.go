@@ -89,6 +89,7 @@ type Consumer struct {
 	ServiceAccount      ServiceAccount `json:"serviceAccount"`
 	Secret              Ref            `json:"secret"`
 	CADeployment        Deployment     `json:"caDeployment,omitzero"`
+	GitOps              *GitOps        `json:"gitops,omitempty"`
 	Access              *Access        `json:"access,omitempty"`
 	ReloadPolicy        string         `json:"reloadPolicy"`
 	PermissionProfile   string         `json:"permissionProfile"`
@@ -101,7 +102,23 @@ type Access struct {
 	Groups []string `json:"groups"`
 }
 
-func (c Consumer) IsAccess() bool { return c.Access != nil }
+func (c Consumer) IsAccess() bool       { return c.Access != nil }
+func (c Consumer) IsGitOps() bool       { return c.GitOps != nil }
+func (c Consumer) CredentialOnly() bool { return c.IsAccess() || c.IsGitOps() }
+
+// GitOps deliberately supports one namespace and one ConfigMap mutation target.
+type GitOps struct {
+	Name          string `json:"name"`
+	Project       string `json:"project"`
+	Namespace     string `json:"namespace"`
+	ConfigMap     string `json:"configMap"`
+	EnrollmentUID string `json:"enrollmentUID"`
+	BoundSecret   Ref    `json:"boundSecret"`
+}
+
+func (g GitOps) valid(namespace string) bool {
+	return name(g.Name) && name(g.Project) && g.Namespace == namespace && objectName(g.ConfigMap) && identity(g.EnrollmentUID) && g.BoundSecret.valid() && g.BoundSecret.Namespace == namespace
+}
 
 func (a Access) valid() bool {
 	if len(a.Users) == 0 || len(a.Users) > 100 || len(a.Groups) > 100 || !distinctText(a.Users) {
@@ -278,7 +295,7 @@ func exactFields(value any, typ reflect.Type) bool {
 		}
 		for key, item := range fields {
 			fieldType, known := allowed[key]
-			if item == nil && (typ == reflect.TypeOf(Deployment{}) && key == "maxReplicas" || typ == reflect.TypeOf(Consumer{}) && (key == "leaderElectionLease" || key == "access")) {
+			if item == nil && (typ == reflect.TypeOf(Deployment{}) && key == "maxReplicas" || typ == reflect.TypeOf(Consumer{}) && (key == "leaderElectionLease" || key == "access" || key == "gitops")) {
 				return false
 			}
 			if !known || !exactFields(item, fieldType) {
@@ -417,6 +434,7 @@ func (r *Registry) Validate() error {
 	ids, clusterUIDs, endpoints := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	outputRefs, sourceRefs, saIDs, deployments := map[string]bool{}, map[string]string{}, map[string]bool{}, map[string]bool{}
 	issuerRefs := map[string]bool{}
+	boundRefs := map[string]bool{}
 	subjectVolumes := map[string]string{}
 	for _, c := range r.Clusters {
 		if c.Enabled == nil || !name(c.ID) || ids[c.ID] || !endpoint(c.Endpoint, false) || endpoints[c.Endpoint] || !identity(c.KubeSystemUID) ||
@@ -449,6 +467,18 @@ func (r *Registry) Validate() error {
 			ref := consumer.Secret
 			key := ref.Namespace + "/" + ref.Name
 			saKey := c.KubeSystemUID + "/" + c.IdentityNamespace + "/" + consumer.ServiceAccount.Name
+			if consumer.IsGitOps() {
+				boundKey := c.KubeSystemUID + "/" + consumer.GitOps.BoundSecret.Namespace + "/" + consumer.GitOps.BoundSecret.Name
+				if boundRefs[boundKey] {
+					return ErrInvalid
+				}
+				boundRefs[boundKey] = true
+				if !name(consumer.ID) || ids[consumer.ID] || !consumer.ServiceAccount.valid() || saIDs[saKey] || !ref.valid() || outputRefs[key] || sourceRefs[key] != "" || consumer.Enabled == nil || (*consumer.Enabled && !*c.Enabled) || consumer.CADeployment != (Deployment{}) || consumer.LeaderElectionLease != nil || consumer.IsAccess() || consumer.ReloadPolicy != "ArgoSecret" || consumer.PermissionProfile != "gitops-configmap" || !consumer.GitOps.valid(c.IdentityNamespace) {
+					return ErrInvalid
+				}
+				ids[consumer.ID], outputRefs[key], saIDs[saKey] = true, true, true
+				continue
+			}
 			if consumer.IsAccess() {
 				if !name(consumer.ID) || ids[consumer.ID] || !consumer.ServiceAccount.valid() || saIDs[saKey] || !ref.valid() || outputRefs[key] || sourceRefs[key] != "" || consumer.Enabled == nil || (*consumer.Enabled && !*c.Enabled) || consumer.CADeployment != (Deployment{}) || consumer.LeaderElectionLease != nil || consumer.ReloadPolicy != "TokenFile" || consumer.PermissionProfile != "access-impersonation" || !consumer.Access.valid() {
 					return ErrInvalid

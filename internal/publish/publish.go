@@ -26,6 +26,9 @@ func Read(ctx context.Context, client kubernetes.Interface, consumer config.Cons
 	if err != nil {
 		return nil, provider.Classify(err)
 	}
+	if consumer.IsGitOps() {
+		return readArgo(s, consumer)
+	}
 	if string(s.UID) != consumer.Secret.UID || s.Type != core.SecretTypeOpaque || (s.Immutable != nil && *s.Immutable) || len(s.Data) != 2 ||
 		s.Data["ca.crt"] == nil || s.Data["token"] == nil || s.Annotations[Owner] != consumer.ID {
 		return nil, provider.Trust
@@ -34,15 +37,22 @@ func Read(ctx context.Context, client kubernetes.Interface, consumer config.Cons
 }
 
 func StoredExpiry(secret *core.Secret, c config.Cluster, consumer config.Consumer) time.Time {
-	claims, err := credential.Parse(string(secret.Data["token"]))
-	if err != nil || credential.Hash(secret.Data["ca.crt"]) != c.CASHA256 || claims.Subject != "system:serviceaccount:"+c.IdentityNamespace+":"+consumer.ServiceAccount.Name ||
-		claims.Kubernetes.ServiceAccount.UID != consumer.ServiceAccount.UID || !credential.SameSet(claims.Audience, c.Audiences) {
+	material, err := Material(secret, c, consumer)
+	if err != nil {
+		return time.Time{}
+	}
+	claims, err := credential.Parse(material.Bearer)
+	if err != nil || credential.Hash(material.CA) != c.CASHA256 || claims.Subject != "system:serviceaccount:"+c.IdentityNamespace+":"+consumer.ServiceAccount.Name ||
+		claims.Kubernetes.ServiceAccount.UID != consumer.ServiceAccount.UID || !credential.SameSet(claims.Audience, c.Audiences) || !issue.BoundClaims(claims, consumer) {
 		return time.Time{}
 	}
 	return time.Unix(claims.Expires, 0)
 }
 
 func Commit(ctx context.Context, client kubernetes.Interface, c config.Cluster, consumer config.Consumer, previous *core.Secret, candidate issue.Candidate, generation string) error {
+	if consumer.IsGitOps() {
+		return commitArgo(ctx, client, c, consumer, previous, candidate, generation)
+	}
 	if previous == nil || string(previous.UID) != consumer.Secret.UID || previous.Annotations[Owner] != consumer.ID || credential.Hash(previous.Data["ca.crt"]) != c.CASHA256 {
 		return provider.Trust
 	}
@@ -85,4 +95,12 @@ func Commit(ctx context.Context, client kubernetes.Interface, c config.Cluster, 
 		return provider.Conflict
 	}
 	return nil
+}
+
+// Material is shared by credential-only consumers; it never exposes credentials in errors.
+func Material(s *core.Secret, c config.Cluster, consumer config.Consumer) (provider.IssuerCredential, error) {
+	if consumer.IsGitOps() {
+		return argoMaterial(s, c, consumer)
+	}
+	return provider.IssuerCredential{Bearer: string(s.Data["token"]), CA: s.Data["ca.crt"]}, nil
 }

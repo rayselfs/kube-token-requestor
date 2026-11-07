@@ -93,6 +93,20 @@ spec:
           annotations:
             summary: Contain the affected gateway route and streams; recover its credential independently. No CA was stopped.
         {{- end }}
+        {{- $hasGitOps := false }}
+        {{- range .Values.registry.clusters }}
+        {{- range .consumers }}
+        {{- if .gitops }}{{- $hasGitOps = true }}{{- end }}
+        {{- end }}
+        {{- end }}
+        {{- if $hasGitOps }}
+        - alert: GitOpsCredentialBlocked
+          expr: {{ printf "kube_token_requestor_condition{%s,condition=\"GitOpsBlocked\"} == 1" $selector | quote }}
+          labels:
+            severity: critical
+          annotations:
+            summary: Suspend affected GitOps operations and recover its pinned credential; no controller is scaled.
+        {{- end }}
         - alert: StopUnconfirmed
           expr: {{ printf "kube_token_requestor_condition{%s,condition=\"StopUnconfirmed\"} == 1" $selector | quote }}
           labels:
