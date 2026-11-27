@@ -154,6 +154,11 @@ Global fields: schemaVersion, managementUID and clusters[]. Cluster fields:
   requires leaderElectionLease namespace/name/UID in the enrolled identity namespace; maxReplicas=2
   requires that profile. The legacy ca-read-events profile forbids a Lease declaration.
 
+An autoscaler that drains nodes can opt into `ca-scale-down-lease` with the same pinned Lease.
+This profile requires node update and Pod eviction creation in addition to the scheduling and
+leader-election permissions. The controller audits existing grants before publishing the token.
+Child-cluster operators own RBAC and admission policy for eligible nodes and workloads.
+
 Provider union: SecretIssuer includes issuer SA name/UID and Secret ref, explicit longLived,
 and optional renewal (the same complete Lifetime fields, independently validated for the source). OAuthTokenExchange
 includes tokenEndpoint, TLS trust Secret ref, clientID/clientSecret ref, projected subject token

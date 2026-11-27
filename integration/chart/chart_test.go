@@ -135,7 +135,7 @@ func TestHAConsumerSchemaRequiresExplicitEnrollment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, mode := range []string{"valid", "missing-lease", "legacy-profile", "three", "null"} {
+	for _, mode := range []string{"valid", "scale-down", "missing-lease", "legacy-profile", "three", "null"} {
 		t.Run(mode, func(t *testing.T) {
 			var registry map[string]any
 			if err := json.Unmarshal(data, &registry); err != nil {
@@ -148,6 +148,8 @@ func TestHAConsumerSchemaRequiresExplicitEnrollment(t *testing.T) {
 			consumer["leaderElectionLease"] = map[string]any{"namespace": cluster["identityNamespace"], "name": "ca-leader", "uid": "00000000-0000-4000-8000-000000000001"}
 			deployment["maxReplicas"] = 2
 			switch mode {
+			case "scale-down":
+				consumer["permissionProfile"] = "ca-scale-down-lease"
 			case "missing-lease":
 				delete(consumer, "leaderElectionLease")
 			case "legacy-profile":
@@ -158,7 +160,7 @@ func TestHAConsumerSchemaRequiresExplicitEnrollment(t *testing.T) {
 				deployment["maxReplicas"] = nil
 			}
 			_, err := render(t, map[string]any{"registry": registry})
-			if (err == nil) != (mode == "valid") {
+			if (err == nil) != (mode == "valid" || mode == "scale-down") {
 				t.Fatal("HA schema trust boundary incorrect")
 			}
 		})

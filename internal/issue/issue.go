@@ -168,7 +168,7 @@ func ValidateConsumer(ctx context.Context, client kubernetes.Interface, c config
 		return denied(ctx, client, c.IdentityNamespace)
 	}
 	if lease := consumer.LeaderElectionLease; lease != nil {
-		if lease.Namespace != c.IdentityNamespace || consumer.PermissionProfile != "ca-read-events-lease" {
+		if lease.Namespace != c.IdentityNamespace || !consumer.UsesLeaseProfile() {
 			return provider.Trust
 		}
 		object, err := client.CoordinationV1().Leases(lease.Namespace).Get(ctx, lease.Name, meta.GetOptions{})
@@ -194,6 +194,16 @@ func ValidateConsumer(ctx context.Context, client kubernetes.Interface, c config
 			{"update", otherName, lease.Namespace, false}, {"update", lease.Name, otherNamespace, false},
 		} {
 			if err := Permission(ctx, client, authz.ResourceAttributes{Group: "coordination.k8s.io", Resource: "leases", Verb: check.verb, Name: check.name, Namespace: check.namespace}, check.allowed); err != nil {
+				return err
+			}
+		}
+	}
+	if consumer.PermissionProfile == config.ScaleDownProfile {
+		for _, resource := range []authz.ResourceAttributes{
+			{Verb: "update", Resource: "nodes"},
+			{Namespace: c.IdentityNamespace, Verb: "create", Resource: "pods", Subresource: "eviction"},
+		} {
+			if err := Permission(ctx, client, resource, true); err != nil {
 				return err
 			}
 		}
