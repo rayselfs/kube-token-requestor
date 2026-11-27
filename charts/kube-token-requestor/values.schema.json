@@ -515,7 +515,8 @@
                         "ca-read-events",
                         "ca-read-events-lease",
                         "access-impersonation",
-                        "gitops-configmap"
+                        "gitops-configmap",
+                        "ca-scale-down-lease"
                       ]
                     },
                     "leaderElectionLease": {
@@ -658,7 +659,10 @@
                       "if": {
                         "properties": {
                           "permissionProfile": {
-                            "const": "ca-read-events-lease"
+                            "enum": [
+                              "ca-read-events-lease",
+                              "ca-scale-down-lease"
+                            ]
                           }
                         }
                       },
@@ -696,7 +700,10 @@
                       "then": {
                         "properties": {
                           "permissionProfile": {
-                            "const": "ca-read-events-lease"
+                            "enum": [
+                              "ca-read-events-lease",
+                              "ca-scale-down-lease"
+                            ]
                           }
                         },
                         "required": [
@@ -777,7 +784,8 @@
                             "permissionProfile": {
                               "enum": [
                                 "ca-read-events",
-                                "ca-read-events-lease"
+                                "ca-read-events-lease",
+                                "ca-scale-down-lease"
                               ]
                             },
                             "reloadPolicy": {

@@ -142,6 +142,11 @@ namespace/name/UID. The Lease must be in the child identity namespace, precreate
 by the operator, with only named get/update rights for that consumer ServiceAccount.
 No automatic Lease or RBAC creation is performed.
 
+An autoscaler that drains nodes can opt into `ca-scale-down-lease` with the same pinned Lease.
+This profile requires node update and Pod eviction creation in addition to the scheduling and
+leader-election permissions. The controller audits existing grants before publishing the token.
+Child-cluster operators own RBAC and admission policy for eligible nodes and workloads.
+
 The CA container must have exactly one canonical value for each election flag:
 `--leader-elect=true`, `--leader-elect-resource-lock=leases`,
 `--leader-elect-resource-name=<lease name>`, `--namespace=<lease namespace>`.

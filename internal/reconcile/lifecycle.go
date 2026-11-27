@@ -28,7 +28,7 @@ func deployment(ctx context.Context, client kubernetes.Interface, consumer confi
 	}
 	if limit == 2 {
 		lease := consumer.LeaderElectionLease
-		if lease == nil || consumer.PermissionProfile != "ca-read-events-lease" {
+		if lease == nil || !consumer.UsesLeaseProfile() {
 			return nil, provider.Trust
 		}
 		args := d.Spec.Template.Spec.Containers[0].Args

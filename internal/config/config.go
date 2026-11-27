@@ -102,6 +102,12 @@ type Access struct {
 	Groups []string `json:"groups"`
 }
 
+const ScaleDownProfile = "ca-scale-down-lease"
+
+func (c Consumer) UsesLeaseProfile() bool {
+	return c.PermissionProfile == "ca-read-events-lease" || c.PermissionProfile == ScaleDownProfile
+}
+
 func (c Consumer) IsAccess() bool       { return c.Access != nil }
 func (c Consumer) IsGitOps() bool       { return c.GitOps != nil }
 func (c Consumer) CredentialOnly() bool { return c.IsAccess() || c.IsGitOps() }
@@ -498,9 +504,9 @@ func (r *Registry) Validate() error {
 			lease := consumer.LeaderElectionLease
 			if dep.ReplicaLimit() < 1 || dep.ReplicaLimit() > 2 ||
 				(consumer.PermissionProfile == "ca-read-events" && lease != nil) ||
-				(consumer.PermissionProfile == "ca-read-events-lease" && (lease == nil || !lease.valid() || lease.Namespace != c.IdentityNamespace)) ||
-				(consumer.PermissionProfile != "ca-read-events" && consumer.PermissionProfile != "ca-read-events-lease") ||
-				(dep.ReplicaLimit() == 2 && consumer.PermissionProfile != "ca-read-events-lease") {
+				(consumer.UsesLeaseProfile() && (lease == nil || !lease.valid() || lease.Namespace != c.IdentityNamespace)) ||
+				(consumer.PermissionProfile != "ca-read-events" && !consumer.UsesLeaseProfile()) ||
+				(dep.ReplicaLimit() == 2 && !consumer.UsesLeaseProfile()) {
 				return ErrInvalid
 			}
 			ids[consumer.ID], outputRefs[key], saIDs[saKey], deployments[depKey] = true, true, true, true

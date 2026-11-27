@@ -18,12 +18,18 @@ func TestEffectivePermissionBoundaries(t *testing.T) {
 	}
 	for _, test := range []struct {
 		name        string
+		profile     string
 		consumer    bool
 		rules       []authz.ResourceRule
 		nonresource []authz.NonResourceRule
 		incomplete  bool
 		accepted    bool
 	}{
+		{name: "scale-down", consumer: true, profile: config.ScaleDownProfile, rules: []authz.ResourceRule{rule("", "nodes", "update"), rule("", "pods/eviction", "create")}, accepted: true},
+		{name: "legacy-eviction", consumer: true, profile: "ca-read-events-lease", rules: []authz.ResourceRule{rule("", "pods/eviction", "create")}},
+		{name: "legacy-node-update", consumer: true, profile: "ca-read-events-lease", rules: []authz.ResourceRule{rule("", "nodes", "update")}},
+		{name: "scale-down-node-patch", consumer: true, profile: config.ScaleDownProfile, rules: []authz.ResourceRule{rule("", "nodes", "patch")}},
+		{name: "scale-down-pod-delete", consumer: true, profile: config.ScaleDownProfile, rules: []authz.ResourceRule{rule("", "pods", "delete")}},
 		{name: "issuer-exact-token", rules: []authz.ResourceRule{rule("", "serviceaccounts/token", "create", "ca")}, accepted: true},
 		{name: "issuer-self-token", rules: []authz.ResourceRule{rule("", "serviceaccounts/token", "create", "issuer")}},
 		{name: "issuer-unnamed-token", rules: []authz.ResourceRule{rule("", "serviceaccounts/token", "create")}},
@@ -54,7 +60,9 @@ func TestEffectivePermissionBoundaries(t *testing.T) {
 			})
 			var consumer *config.Consumer
 			if test.consumer {
-				consumer = &c.Consumers[0]
+				item := c.Consumers[0]
+				item.PermissionProfile = test.profile
+				consumer = &item
 			}
 			if (reviewPermissions(context.Background(), client, c, consumer) == nil) != test.accepted {
 				t.Fatal("permission boundary incorrect")

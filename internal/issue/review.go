@@ -86,7 +86,10 @@ func reviewPermissions(ctx context.Context, client kubernetes.Interface, c confi
 						}
 					}
 					if consumer != nil && !consumer.CredentialOnly() {
-						if lease := consumer.LeaderElectionLease; lease != nil && consumer.PermissionProfile == "ca-read-events-lease" &&
+						if consumer.PermissionProfile == config.ScaleDownProfile && group == "" {
+							allowed = allowed || (resource == "nodes" && verb == "update") || (resource == "pods/eviction" && verb == "create")
+						}
+						if lease := consumer.LeaderElectionLease; lease != nil && consumer.UsesLeaseProfile() &&
 							group == "coordination.k8s.io" && resource == "leases" && (verb == "get" || verb == "update") {
 							allowed = namedOnly(rule.ResourceNames, []string{lease.Name})
 						}

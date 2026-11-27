@@ -172,7 +172,7 @@ func FuzzParse(f *testing.F) {
 }
 
 func TestHAEnrollmentIsExplicitAndBounded(t *testing.T) {
-	for _, mode := range []string{"valid", "candidate", "missing-lease", "legacy-profile", "wrong-namespace", "zero", "three", "null"} {
+	for _, mode := range []string{"valid", "scale-down", "candidate", "missing-lease", "legacy-profile", "wrong-namespace", "zero", "three", "null"} {
 		t.Run(mode, func(t *testing.T) {
 			v := fixture(t)
 			item := consumer(v, 0)
@@ -181,6 +181,8 @@ func TestHAEnrollmentIsExplicitAndBounded(t *testing.T) {
 			item["permissionProfile"] = "ca-read-events-lease"
 			item["leaderElectionLease"] = map[string]any{"namespace": cluster(v, 0)["identityNamespace"], "name": "ca-leader", "uid": "10000000-0000-4000-8000-000000000099"}
 			switch mode {
+			case "scale-down":
+				item["permissionProfile"] = "ca-scale-down-lease"
 			case "candidate":
 				delete(dep, "maxReplicas")
 			case "missing-lease":
@@ -198,7 +200,7 @@ func TestHAEnrollmentIsExplicitAndBounded(t *testing.T) {
 			}
 			data, _ := json.Marshal(v)
 			_, err := Parse(bytes.NewReader(data))
-			if (err == nil) != (mode == "valid" || mode == "candidate") {
+			if (err == nil) != (mode == "valid" || mode == "scale-down" || mode == "candidate") {
 				t.Fatal("HA declaration boundary incorrect")
 			}
 		})
